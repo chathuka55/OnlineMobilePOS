@@ -2,6 +2,7 @@ package com.possaas.identity.api.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.Set;
@@ -86,7 +87,8 @@ public final class AuthDtos {
             String tenantSlug,
             Set<String> roles,
             Set<String> permissions,
-            boolean platformAdmin
+            boolean platformAdmin,
+            boolean hasPin
     ) {
     }
 
@@ -128,5 +130,23 @@ public final class AuthDtos {
     }
 
     public record MessageResponse(String message) {
+    }
+
+    public record ChangePasswordRequest(
+            @NotBlank String currentPassword,
+            @NotBlank @Size(min = 8, max = 128) String newPassword
+    ) {
+    }
+
+    public record SetPinRequest(
+            @NotBlank String password,
+            @Pattern(regexp = "^(\\d{4,6})?$", message = "PIN must be 4 to 6 digits, or empty to remove it")
+            String pin
+    ) {
+    }
+
+    public record VerifyPinRequest(
+            @NotBlank String pin
+    ) {
     }
 }

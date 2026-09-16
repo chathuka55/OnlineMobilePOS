@@ -52,10 +52,10 @@ export default function ReportsPage() {
   const { data: auditLog, isLoading: loadingAudit } = useQuery({
     queryKey: ['reports', 'audit', auditFrom, auditTo],
     queryFn: () =>
-      api.get<any>('/api/v1/audit', {
+      api.get<any>('/api/v1/audit-events', {
         size: 100,
-        from: auditFrom || undefined,
-        to: auditTo || undefined,
+        from: auditFrom ? `${auditFrom}T00:00:00Z` : undefined,
+        to: auditTo ? `${auditTo}T23:59:59Z` : undefined,
       }),
   });
 
@@ -283,12 +283,12 @@ export default function ReportsPage() {
                 <TableBody>
                   {asList(auditLog).map((log: any) => (
                     <TableRow key={log.id}>
-                      <TableCell>{new Date(log.timestamp).toLocaleString()}</TableCell>
+                      <TableCell>{new Date(log.occurredAt).toLocaleString()}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{log.action}</Badge>
                       </TableCell>
-                      <TableCell>{log.details}</TableCell>
-                      <TableCell>{log.user}</TableCell>
+                      <TableCell>{log.summary}</TableCell>
+                      <TableCell>{log.actorName ?? log.actorEmail}</TableCell>
                     </TableRow>
                   ))}
                   {asList(auditLog).length === 0 && (

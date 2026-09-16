@@ -2,11 +2,15 @@ package com.possaas.identity.api;
 
 import com.possaas.common.api.PageResponse;
 import com.possaas.identity.api.dto.AuthDtos.AccessTokenResponse;
+import com.possaas.identity.api.dto.AuthDtos.ChangePasswordRequest;
 import com.possaas.identity.api.dto.AuthDtos.InviteUserRequest;
 import com.possaas.identity.api.dto.AuthDtos.InviteUserResponse;
+import com.possaas.identity.api.dto.AuthDtos.MessageResponse;
+import com.possaas.identity.api.dto.AuthDtos.SetPinRequest;
 import com.possaas.identity.api.dto.AuthDtos.StepUpRequest;
 import com.possaas.identity.api.dto.AuthDtos.UpdateUserRequest;
 import com.possaas.identity.api.dto.AuthDtos.UserResponse;
+import com.possaas.identity.api.dto.AuthDtos.VerifyPinRequest;
 import com.possaas.identity.domain.UserStatus;
 import com.possaas.identity.service.AuthService;
 import com.possaas.identity.service.UserService;
@@ -72,5 +76,20 @@ public class UserController {
     @PostMapping("/step-up")
     public AccessTokenResponse stepUp(@Valid @RequestBody StepUpRequest request) {
         return authService.stepUp(request);
+    }
+
+    @PostMapping("/me/password")
+    public MessageResponse changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        return authService.changePassword(request);
+    }
+
+    @PostMapping("/me/pin")
+    public MessageResponse setPin(@Valid @RequestBody SetPinRequest request) {
+        return authService.setPin(request);
+    }
+
+    @PostMapping("/me/pin/verify")
+    public MessageResponse verifyPin(@Valid @RequestBody VerifyPinRequest request) {
+        return authService.verifyPin(request);
     }
 }

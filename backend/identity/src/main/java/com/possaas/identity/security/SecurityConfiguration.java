@@ -42,6 +42,7 @@ public class SecurityConfiguration {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
                                            JwtAuthenticationFilter jwtFilter,
+                                           SubscriptionEnforcementFilter subscriptionFilter,
                                            ObjectMapper objectMapper) throws Exception {
         return http
                 // No cookies, no sessions, so there is no CSRF surface to protect.
@@ -73,6 +74,7 @@ public class SecurityConfiguration {
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter,
                         org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(subscriptionFilter, JwtAuthenticationFilter.class)
                 .exceptionHandling(handling -> handling
                         .authenticationEntryPoint((request, response, ex) ->
                                 writeError(response, objectMapper, ErrorCode.UNAUTHENTICATED,
@@ -105,12 +107,14 @@ public class SecurityConfiguration {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        List<String> origins = properties.cors().allowedOrigins();
-        if (origins.size() == 1 && "*".equals(origins.getFirst())) {
-            config.setAllowedOriginPatterns(List.of("*"));
-        } else {
-            config.setAllowedOrigins(origins);
-        }
+        // Patterns, not setAllowedOrigins: Vercel mints a unique hash-suffixed URL
+        // for every deployment in addition to the stable production alias (e.g.
+        // mobileposonline-admin-dashboard-<hash>.vercel.app), so a literal allowlist
+        // would need updating on every deploy. allowCredentials is false, so a
+        // wildcard segment here only widens which origins can read a response, not
+        // which origins carry ambient cookie/session auth - the JWT is sent
+        // explicitly via the Authorization header.
+        config.setAllowedOriginPatterns(properties.cors().allowedOrigins());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-Id",
                 "X-Device-Id", "X-Idempotency-Key", "X-Outlet-Id"));

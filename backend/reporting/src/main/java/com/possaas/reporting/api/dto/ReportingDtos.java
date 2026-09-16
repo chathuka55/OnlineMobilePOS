@@ -47,6 +47,37 @@ public final class ReportingDtos {
     ) {
     }
 
+    public record SalesRangeResponse(
+            LocalDate from,
+            LocalDate to,
+            BigDecimal totalRevenue,
+            long totalBills,
+            BigDecimal averageBillValue,
+            BigDecimal totalRefunds,
+            List<SalesDayRow> dailyBreakdown,
+            String currency
+    ) {
+    }
+
+    public record SalesDayRow(
+            LocalDate date,
+            long billsCount,
+            BigDecimal revenue,
+            BigDecimal refunds,
+            BigDecimal net
+    ) {
+    }
+
+    public record TopCustomerRow(
+            UUID id,
+            String name,
+            String type,
+            BigDecimal totalPurchases,
+            BigDecimal outstandingBalance,
+            Instant lastPurchaseDate
+    ) {
+    }
+
     public record AuditEventResponse(
             UUID id,
             UUID tenantId,

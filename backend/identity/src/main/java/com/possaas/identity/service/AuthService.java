@@ -5,16 +5,19 @@ import com.possaas.common.error.ErrorCode;
 import com.possaas.common.tenant.TenantContext;
 import com.possaas.identity.api.dto.AuthDtos.AcceptInviteRequest;
 import com.possaas.identity.api.dto.AuthDtos.AccessTokenResponse;
+import com.possaas.identity.api.dto.AuthDtos.ChangePasswordRequest;
 import com.possaas.identity.api.dto.AuthDtos.ForgotPasswordRequest;
 import com.possaas.identity.api.dto.AuthDtos.LoginRequest;
 import com.possaas.identity.api.dto.AuthDtos.LogoutRequest;
 import com.possaas.identity.api.dto.AuthDtos.MessageResponse;
 import com.possaas.identity.api.dto.AuthDtos.RefreshRequest;
 import com.possaas.identity.api.dto.AuthDtos.ResetPasswordRequest;
+import com.possaas.identity.api.dto.AuthDtos.SetPinRequest;
 import com.possaas.identity.api.dto.AuthDtos.SignupRequest;
 import com.possaas.identity.api.dto.AuthDtos.StepUpRequest;
 import com.possaas.identity.api.dto.AuthDtos.TokenResponse;
 import com.possaas.identity.api.dto.AuthDtos.UserResponse;
+import com.possaas.identity.api.dto.AuthDtos.VerifyPinRequest;
 import com.possaas.identity.domain.OneTimeToken;
 import com.possaas.identity.domain.Role;
 import com.possaas.identity.domain.SystemRole;
@@ -360,6 +363,72 @@ public class AuthService {
         return new AccessTokenResponse(access.token(), access.expiresInSeconds(), access.expiresAt());
     }
 
+    @Transactional
+    public MessageResponse changePassword(ChangePasswordRequest request) {
+        PosPrincipal principal = requirePrincipal();
+        User user = loadPrincipalUser(principal);
+
+        if (user.getPasswordHash() == null
+                || !passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw invalidCredentials();
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        persistUser(user, null);
+        refreshTokenService.revokeAllForUser(user.getId(), "PASSWORD_CHANGED");
+        return new MessageResponse("Password changed");
+    }
+
+    /**
+     * Sets or replaces the current user's till-unlock PIN. Requires the account password,
+     * the same as {@link #stepUp}, so a PIN can't be silently swapped from a hijacked but
+     * still-live session.
+     */
+    @Transactional
+    public MessageResponse setPin(SetPinRequest request) {
+        PosPrincipal principal = requirePrincipal();
+        User user = loadPrincipalUser(principal);
+
+        if (user.getPasswordHash() == null
+                || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            throw invalidCredentials();
+        }
+
+        boolean clearing = request.pin() == null || request.pin().isBlank();
+        user.setPinHash(clearing ? null : passwordEncoder.encode(request.pin()));
+        persistUser(user, null);
+        return new MessageResponse(clearing ? "PIN removed" : "PIN updated");
+    }
+
+    /**
+     * Verifies the till-unlock PIN for the already-authenticated caller. This is a
+     * second factor for resuming a locked screen, not a login: the caller must already
+     * hold a valid access token, so a wrong PIN never grants anything by itself.
+     */
+    @Transactional(readOnly = true)
+    public MessageResponse verifyPin(VerifyPinRequest request) {
+        PosPrincipal principal = requirePrincipal();
+        User user = loadPrincipalUser(principal);
+
+        if (user.getPinHash() == null) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "No PIN has been set for this account");
+        }
+        if (!passwordEncoder.matches(request.pin(), user.getPinHash())) {
+            throw new ApiException(ErrorCode.INVALID_CREDENTIALS, "Incorrect PIN");
+        }
+        return new MessageResponse("PIN verified");
+    }
+
+    private User loadPrincipalUser(PosPrincipal principal) {
+        AtomicReference<User> userRef = new AtomicReference<>();
+        if (principal.tenantId() != null) {
+            TenantContext.runAs(principal.toScope(), () -> userRef.set(requireUser(principal.userId())));
+        } else {
+            userRef.set(requireUser(principal.userId()));
+        }
+        return userRef.get();
+    }
+
     // --- token issuance helpers ---------------------------------------------------
 
     public IssuedInvite issueInviteToken(User user) {
@@ -488,7 +557,8 @@ public class AuthService {
                 tenantSlug,
                 user.roleCodes(),
                 user.permissionCodes(),
-                user.isPlatformAdmin());
+                user.isPlatformAdmin(),
+                user.getPinHash() != null);
     }
 
     // --- lookups / guards ---------------------------------------------------------

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Button,
@@ -27,28 +27,56 @@ import {
 import { PageHeader } from '@/components/page-header';
 import { api, ApiError } from '@/lib/api';
 
+type Outlet = {
+  id: string;
+  name: string;
+  defaultOutlet: boolean;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  phonePrimary: string | null;
+  email: string | null;
+  receiptFooter: string | null;
+  logoDataUrl: string | null;
+};
+
+type Tenant = {
+  businessName: string;
+  legalName: string | null;
+  taxIdentifier: string | null;
+  contactPhone: string | null;
+  defaultCurrency: string;
+};
+
 export default function SettingsPage() {
   const queryClient = useQueryClient();
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: shopSettings, isLoading: loadingShop } = useQuery({
-    queryKey: ['settings', 'shop'],
-    queryFn: () => api.get<any>('/api/v1/settings/shop'),
+  const { data: tenant, isLoading: loadingTenant } = useQuery({
+    queryKey: ['tenant'],
+    queryFn: () => api.get<Tenant>('/api/v1/tenant'),
   });
+
+  const { data: outlets, isLoading: loadingOutlets } = useQuery({
+    queryKey: ['outlets'],
+    queryFn: () => api.get<Outlet[]>('/api/v1/outlets'),
+  });
+
+  const outlet = outlets?.find((o) => o.defaultOutlet) ?? outlets?.[0];
 
   const [shopData, setShopData] = useState({
     businessName: '',
-    tagline: '',
+    taxIdentifier: '',
     phone: '',
     email: '',
     addressLine1: '',
     city: '',
-    taxIdentifier: '',
   });
 
   const [receiptData, setReceiptData] = useState({
     receiptFooter: '',
-    showTaxBreakdown: false,
     currency: 'LKR',
+    logoDataUrl: null as string | null,
   });
 
   const [securityData, setSecurityData] = useState({
@@ -57,29 +85,62 @@ export default function SettingsPage() {
     confirmPassword: '',
   });
 
+  const [pinData, setPinData] = useState({ password: '', pin: '' });
+  const [exporting, setExporting] = useState(false);
+
   useEffect(() => {
-    if (shopSettings) {
-      setShopData({
-        businessName: shopSettings.businessName || '',
-        tagline: shopSettings.tagline || '',
-        phone: shopSettings.phone || '',
-        email: shopSettings.email || '',
-        addressLine1: shopSettings.addressLine1 || '',
-        city: shopSettings.city || '',
-        taxIdentifier: shopSettings.taxIdentifier || '',
-      });
-      setReceiptData({
-        receiptFooter: shopSettings.receiptFooter || '',
-        showTaxBreakdown: shopSettings.showTaxBreakdown || false,
-        currency: shopSettings.currency || 'LKR',
-      });
+    if (tenant) {
+      setShopData((prev) => ({
+        ...prev,
+        businessName: tenant.businessName || '',
+        taxIdentifier: tenant.taxIdentifier || '',
+        phone: tenant.contactPhone || '',
+      }));
+      setReceiptData((prev) => ({ ...prev, currency: tenant.defaultCurrency || 'LKR' }));
     }
-  }, [shopSettings]);
+  }, [tenant]);
+
+  useEffect(() => {
+    if (outlet) {
+      setShopData((prev) => ({
+        ...prev,
+        email: outlet.email || '',
+        addressLine1: outlet.addressLine1 || '',
+        city: outlet.city || '',
+      }));
+      setReceiptData((prev) => ({
+        ...prev,
+        receiptFooter: outlet.receiptFooter || '',
+        logoDataUrl: outlet.logoDataUrl,
+      }));
+    }
+  }, [outlet]);
+
+  const loading = loadingTenant || loadingOutlets;
 
   const updateShopMutation = useMutation({
-    mutationFn: (data: any) => api.put('/api/v1/settings/shop', data),
+    mutationFn: async () => {
+      await api.put('/api/v1/tenant', {
+        businessName: shopData.businessName,
+        taxIdentifier: shopData.taxIdentifier,
+        contactPhone: shopData.phone,
+      });
+      if (outlet) {
+        await api.put(`/api/v1/outlets/${outlet.id}`, {
+          name: outlet.name,
+          addressLine1: shopData.addressLine1,
+          addressLine2: outlet.addressLine2,
+          city: shopData.city,
+          phonePrimary: outlet.phonePrimary,
+          email: shopData.email,
+          receiptFooter: outlet.receiptFooter,
+          logoDataUrl: outlet.logoDataUrl,
+        });
+      }
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings', 'shop'] });
+      queryClient.invalidateQueries({ queryKey: ['tenant'] });
+      queryClient.invalidateQueries({ queryKey: ['outlets'] });
       toast({ title: 'Shop profile updated' });
     },
     onError: (err) => {
@@ -92,9 +153,29 @@ export default function SettingsPage() {
   });
 
   const updateReceiptMutation = useMutation({
-    mutationFn: (data: any) => api.put('/api/v1/settings/receipt', data),
+    mutationFn: async () => {
+      await api.put('/api/v1/tenant', {
+        businessName: shopData.businessName,
+        taxIdentifier: shopData.taxIdentifier,
+        contactPhone: shopData.phone,
+        defaultCurrency: receiptData.currency,
+      });
+      if (outlet) {
+        await api.put(`/api/v1/outlets/${outlet.id}`, {
+          name: outlet.name,
+          addressLine1: outlet.addressLine1,
+          addressLine2: outlet.addressLine2,
+          city: outlet.city,
+          phonePrimary: outlet.phonePrimary,
+          email: outlet.email,
+          receiptFooter: receiptData.receiptFooter,
+          logoDataUrl: receiptData.logoDataUrl,
+        });
+      }
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings', 'shop'] });
+      queryClient.invalidateQueries({ queryKey: ['tenant'] });
+      queryClient.invalidateQueries({ queryKey: ['outlets'] });
       toast({ title: 'Receipt settings updated' });
     },
     onError: (err) => {
@@ -107,10 +188,10 @@ export default function SettingsPage() {
   });
 
   const changePasswordMutation = useMutation({
-    mutationFn: (data: any) =>
-      api.post('/api/v1/auth/change-password', {
-        currentPassword: data.currentPassword,
-        newPassword: data.newPassword,
+    mutationFn: () =>
+      api.post('/api/v1/users/me/password', {
+        currentPassword: securityData.currentPassword,
+        newPassword: securityData.newPassword,
       }),
     onSuccess: () => {
       setSecurityData({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -119,28 +200,59 @@ export default function SettingsPage() {
     onError: (err) => {
       toast({
         title: 'Error changing password',
-        description: err instanceof ApiError ? err.message : 'Unknown error',
+        description: err instanceof ApiError ? err.message : 'Incorrect current password',
         variant: 'destructive',
       });
     },
   });
 
-  const handleSaveShop = () => updateShopMutation.mutate(shopData);
-  const handleSaveReceipt = () => updateReceiptMutation.mutate(receiptData);
+  const setPinMutation = useMutation({
+    mutationFn: () => api.auth.setPin(pinData),
+    onSuccess: () => {
+      toast({ title: pinData.pin ? 'Till PIN saved' : 'Till PIN disabled' });
+      setPinData({ password: '', pin: '' });
+    },
+    onError: (err) => {
+      toast({
+        title: 'Error setting PIN',
+        description: err instanceof ApiError ? err.message : 'Incorrect password',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleSaveShop = () => updateShopMutation.mutate();
+  const handleSaveReceipt = () => updateReceiptMutation.mutate();
 
   const handleSaveSecurity = () => {
     if (securityData.newPassword !== securityData.confirmPassword) {
       toast({ title: 'Passwords do not match', variant: 'destructive' });
       return;
     }
-    changePasswordMutation.mutate(securityData);
+    changePasswordMutation.mutate();
+  };
+
+  const handleLogoFile = (file: File) => {
+    if (file.size > 250_000) {
+      toast({
+        title: 'Image too large',
+        description: 'Please use a logo under 250 KB.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setReceiptData((prev) => ({ ...prev, logoDataUrl: reader.result as string }));
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
     <div className="space-y-6">
       <PageHeader title="Settings" description="Tenant, outlet, tax, and receipt preferences." />
 
-      {loadingShop ? (
+      {loading ? (
         <Spinner />
       ) : (
         <Tabs defaultValue="shop" className="space-y-4">
@@ -163,13 +275,6 @@ export default function SettingsPage() {
                     <Input
                       value={shopData.businessName}
                       onChange={(e) => setShopData({ ...shopData, businessName: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Tagline</Label>
-                    <Input
-                      value={shopData.tagline}
-                      onChange={(e) => setShopData({ ...shopData, tagline: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
@@ -252,17 +357,51 @@ export default function SettingsPage() {
                     placeholder="Thank you for your business!"
                   />
                 </div>
-                <div className="flex items-center space-x-2 pt-2">
-                  <input
-                    type="checkbox"
-                    id="showTax"
-                    checked={receiptData.showTaxBreakdown}
-                    onChange={(e) =>
-                      setReceiptData({ ...receiptData, showTaxBreakdown: e.target.checked })
-                    }
-                    className="rounded border-gray-300"
-                  />
-                  <Label htmlFor="showTax">Show tax breakdown on receipt</Label>
+                <div className="space-y-2">
+                  <Label>Shop Logo</Label>
+                  <div className="flex items-center gap-4">
+                    {receiptData.logoDataUrl ? (
+                      <img
+                        src={receiptData.logoDataUrl}
+                        alt="Shop logo"
+                        className="h-16 w-16 rounded border object-contain"
+                      />
+                    ) : (
+                      <div className="text-muted-foreground flex h-16 w-16 items-center justify-center rounded border text-xs">
+                        No logo
+                      </div>
+                    )}
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleLogoFile(file);
+                        e.target.value = '';
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => logoInputRef.current?.click()}
+                    >
+                      Upload Logo
+                    </Button>
+                    {receiptData.logoDataUrl ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setReceiptData({ ...receiptData, logoDataUrl: null })}
+                      >
+                        Remove
+                      </Button>
+                    ) : null}
+                  </div>
+                  <p className="text-muted-foreground text-xs">
+                    Printed on receipts and the A4 invoice PDF. Under 250 KB.
+                  </p>
                 </div>
               </CardContent>
               <CardFooter>
@@ -277,8 +416,47 @@ export default function SettingsPage() {
           <TabsContent value="security">
             <Card>
               <CardHeader>
-                <CardTitle>Security</CardTitle>
-                <CardDescription>Manage your account security.</CardDescription>
+                <CardTitle>Data Backup</CardTitle>
+                <CardDescription>
+                  Download a full backup of your shop&apos;s data (items, customers, bills,
+                  repairs, wholesale invoices and more) as a JSON file.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  variant="outline"
+                  disabled={exporting}
+                  onClick={async () => {
+                    setExporting(true);
+                    try {
+                      const res = await fetch(`${api.baseUrl}/api/v1/data-export`, {
+                        headers: { Authorization: `Bearer ${api.tokens.getAccessToken()}` },
+                      });
+                      if (!res.ok) throw new Error('Export failed');
+                      const blob = await res.blob();
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `shop-data-export-${new Date().toISOString().slice(0, 10)}.json`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    } catch {
+                      toast({ title: 'Could not download backup', variant: 'destructive' });
+                    } finally {
+                      setExporting(false);
+                    }
+                  }}
+                >
+                  {exporting ? <Spinner className="mr-2" /> : null}
+                  Download Backup
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Change Password</CardTitle>
+                <CardDescription>Update your account password.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="max-w-sm space-y-2">
@@ -316,6 +494,59 @@ export default function SettingsPage() {
                 <Button onClick={handleSaveSecurity} disabled={changePasswordMutation.isPending}>
                   {changePasswordMutation.isPending ? <Spinner className="mr-2" /> : null}
                   Change Password
+                </Button>
+              </CardFooter>
+            </Card>
+
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Till Unlock PIN</CardTitle>
+                <CardDescription>
+                  A short PIN cashiers enter to resume a locked POS terminal, instead of the
+                  full password. Leave the PIN field empty to disable it.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="max-w-sm space-y-2">
+                  <Label>Your Account Password</Label>
+                  <Input
+                    type="password"
+                    value={pinData.password}
+                    onChange={(e) => setPinData({ ...pinData, password: e.target.value })}
+                    placeholder="Confirm it's you"
+                  />
+                </div>
+                <div className="max-w-sm space-y-2">
+                  <Label>New PIN (4 digits)</Label>
+                  <Input
+                    type="password"
+                    maxLength={4}
+                    value={pinData.pin}
+                    onChange={(e) =>
+                      setPinData({ ...pinData, pin: e.target.value.replace(/\D/g, '') })
+                    }
+                    placeholder="Leave empty to disable"
+                    className="text-center text-xl tracking-[1em]"
+                  />
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button
+                  onClick={() => {
+                    if (pinData.pin.length > 0 && pinData.pin.length !== 4) {
+                      toast({ title: 'PIN must be 4 digits', variant: 'destructive' });
+                      return;
+                    }
+                    if (!pinData.password) {
+                      toast({ title: 'Enter your password to confirm', variant: 'destructive' });
+                      return;
+                    }
+                    setPinMutation.mutate();
+                  }}
+                  disabled={setPinMutation.isPending}
+                >
+                  {setPinMutation.isPending ? <Spinner className="mr-2" /> : null}
+                  Save PIN
                 </Button>
               </CardFooter>
             </Card>

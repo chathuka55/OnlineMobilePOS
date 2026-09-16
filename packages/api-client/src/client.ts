@@ -12,9 +12,11 @@ import {
   type Item,
   type ItemRequest,
   type LoginRequest,
+  type Outlet,
   type Page,
   type RefreshRequest,
   type SignupRequest,
+  type Tenant,
   type TokenResponse,
   type User,
   type UUID,
@@ -202,6 +204,21 @@ export function createPosApiClient(options: PosApiClientOptions = {}) {
         } catch {
           return null;
         }
+      },
+      setPin(payload: { password: string; pin: string }) {
+        return post<{ message: string }>('/api/v1/users/me/pin', payload);
+      },
+      verifyPin(payload: { pin: string }) {
+        return post<{ message: string }>('/api/v1/users/me/pin/verify', payload);
+      },
+    },
+
+    shop: {
+      tenant() {
+        return get<Tenant>('/api/v1/tenant');
+      },
+      outlets() {
+        return get<Outlet[]>('/api/v1/outlets');
       },
     },
 

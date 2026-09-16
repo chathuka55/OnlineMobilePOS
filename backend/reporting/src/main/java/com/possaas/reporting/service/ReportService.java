@@ -5,13 +5,20 @@ import com.possaas.common.error.ErrorCode;
 import com.possaas.common.tenant.TenantContext;
 import com.possaas.reporting.api.dto.ReportingDtos.DailySummaryResponse;
 import com.possaas.reporting.api.dto.ReportingDtos.MonthlySummaryResponse;
+import com.possaas.reporting.api.dto.ReportingDtos.SalesDayRow;
+import com.possaas.reporting.api.dto.ReportingDtos.SalesRangeResponse;
+import com.possaas.reporting.api.dto.ReportingDtos.TopCustomerRow;
 import com.possaas.sales.domain.Bill;
 import com.possaas.sales.domain.BillLine;
 import com.possaas.sales.repository.BillRepository;
+import com.possaas.tenancy.domain.Outlet;
 import com.possaas.tenancy.domain.Tenant;
+import com.possaas.tenancy.repository.OutletRepository;
 import com.possaas.tenancy.repository.TenantRepository;
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.util.Base64;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -38,13 +45,16 @@ public class ReportService {
     private final JdbcTemplate jdbcTemplate;
     private final BillRepository billRepository;
     private final TenantRepository tenantRepository;
+    private final OutletRepository outletRepository;
 
     public ReportService(JdbcTemplate jdbcTemplate,
                          BillRepository billRepository,
-                         TenantRepository tenantRepository) {
+                         TenantRepository tenantRepository,
+                         OutletRepository outletRepository) {
         this.jdbcTemplate = jdbcTemplate;
         this.billRepository = billRepository;
         this.tenantRepository = tenantRepository;
+        this.outletRepository = outletRepository;
     }
 
     @Transactional(readOnly = true)
@@ -120,6 +130,71 @@ public class ReportService {
     }
 
     @Transactional(readOnly = true)
+    public SalesRangeResponse salesRange(LocalDate from, LocalDate to) {
+        TenantContext.requireTenantId();
+        ZoneId zone = zone();
+        String currency = currency();
+        LocalDate rangeTo = to == null ? LocalDate.now(zone) : to;
+        LocalDate rangeFrom = from == null ? rangeTo.minusDays(29) : from;
+        if (rangeFrom.isAfter(rangeTo)) {
+            LocalDate swap = rangeFrom;
+            rangeFrom = rangeTo;
+            rangeTo = swap;
+        }
+        if (rangeFrom.isBefore(rangeTo.minusDays(366))) {
+            rangeFrom = rangeTo.minusDays(366);
+        }
+
+        List<SalesDayRow> days = new ArrayList<>();
+        BigDecimal totalRevenue = BigDecimal.ZERO;
+        BigDecimal totalRefunds = BigDecimal.ZERO;
+        long totalBills = 0;
+        for (LocalDate day = rangeFrom; !day.isAfter(rangeTo); day = day.plusDays(1)) {
+            Instant dayFrom = day.atStartOfDay(zone).toInstant();
+            Instant dayTo = day.plusDays(1).atStartOfDay(zone).toInstant();
+            DailySummaryResponse summary = loadDaily(day, dayFrom, dayTo, currency);
+            days.add(new SalesDayRow(day, summary.billCount(), summary.salesTotal(),
+                    summary.refundTotal(), summary.netSales()));
+            totalRevenue = totalRevenue.add(summary.salesTotal());
+            totalRefunds = totalRefunds.add(summary.refundTotal());
+            totalBills += summary.billCount();
+        }
+
+        BigDecimal averageBillValue = totalBills == 0
+                ? BigDecimal.ZERO
+                : totalRevenue.divide(BigDecimal.valueOf(totalBills), 2, java.math.RoundingMode.HALF_UP);
+
+        return new SalesRangeResponse(rangeFrom, rangeTo, totalRevenue, totalBills,
+                averageBillValue, totalRefunds, days, currency);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TopCustomerRow> topCustomers(int size) {
+        UUID tenantId = TenantContext.requireTenantId();
+        int limit = Math.max(1, Math.min(size, 200));
+        return jdbcTemplate.query(
+                """
+                        SELECT c.id, c.display_name, c.customer_type,
+                               c.lifetime_sales, c.outstanding_amount,
+                               (SELECT MAX(b.billed_at) FROM bills b
+                                 WHERE b.customer_id = c.id AND b.tenant_id = c.tenant_id) AS last_purchase_at
+                          FROM customers c
+                         WHERE c.tenant_id = ? AND c.deleted_at IS NULL
+                         ORDER BY c.lifetime_sales DESC
+                         LIMIT ?
+                        """,
+                (rs, rowNum) -> new TopCustomerRow(
+                        UUID.fromString(rs.getString("id")),
+                        rs.getString("display_name"),
+                        rs.getString("customer_type"),
+                        rs.getBigDecimal("lifetime_sales"),
+                        rs.getBigDecimal("outstanding_amount"),
+                        rs.getTimestamp("last_purchase_at") == null
+                                ? null : rs.getTimestamp("last_purchase_at").toInstant()),
+                tenantId, limit);
+    }
+
+    @Transactional(readOnly = true)
     public byte[] generateBillInvoicePdf(UUID billId) {
         Bill bill = billRepository.findByIdWithLines(billId)
                 .orElseThrow(() -> ApiException.notFound("Bill", billId));
@@ -155,6 +230,9 @@ public class ReportService {
         params.put("DISCOUNT_TOTAL", bill.getBillDiscountAmount().add(bill.getLineDiscountTotal()));
         params.put("GRAND_TOTAL", bill.getGrandTotal());
         params.put("BILLED_AT", bill.getBilledAt() == null ? "" : bill.getBilledAt().toString());
+        params.put("BUSINESS_NAME", tenantRepository.findById(TenantContext.requireTenantId())
+                .map(Tenant::getBusinessName).orElse(""));
+        params.put("LOGO_IMAGE", logoStream(bill.getOutletId()));
 
         try (InputStream template = new ClassPathResource("reports/bill_invoice.jrxml").getInputStream()) {
             JasperReport report = JasperCompileManager.compileReport(template);
@@ -164,6 +242,33 @@ public class ReportService {
         } catch (Exception ex) {
             throw new ApiException(ErrorCode.INTERNAL_ERROR,
                     "Failed to generate bill invoice PDF", ex);
+        }
+    }
+
+    /**
+     * Decodes an outlet's {@code data:image/...;base64,...} logo into raw bytes for
+     * Jasper's image element. Returns null (not an error) when there's no outlet or
+     * no logo set - the jrxml's onErrorType="Blank" then just omits the image.
+     */
+    private InputStream logoStream(UUID outletId) {
+        if (outletId == null) {
+            return null;
+        }
+        String dataUrl = outletRepository.findById(outletId)
+                .map(Outlet::getLogoDataUrl)
+                .orElse(null);
+        if (dataUrl == null) {
+            return null;
+        }
+        int comma = dataUrl.indexOf(',');
+        if (comma < 0) {
+            return null;
+        }
+        try {
+            byte[] bytes = Base64.getDecoder().decode(dataUrl.substring(comma + 1));
+            return new ByteArrayInputStream(bytes);
+        } catch (IllegalArgumentException ex) {
+            return null;
         }
     }
 

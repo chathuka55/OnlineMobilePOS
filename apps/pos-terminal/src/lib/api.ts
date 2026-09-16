@@ -5,11 +5,11 @@ export const api = createPosApiClient({
   storageMode: 'localStorage',
 });
 
-export function money(value: number | string | null | undefined) {
+export function money(value: number | string | null | undefined, currency = 'LKR') {
   const n = typeof value === 'string' ? Number(value) : (value ?? 0);
   return new Intl.NumberFormat(undefined, {
     style: 'currency',
-    currency: 'LKR',
+    currency,
     minimumFractionDigits: 2,
   }).format(Number.isFinite(n) ? n : 0);
 }

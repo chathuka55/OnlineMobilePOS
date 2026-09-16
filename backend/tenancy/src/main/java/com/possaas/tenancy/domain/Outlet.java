@@ -56,6 +56,16 @@ public class Outlet extends TenantEntity {
     @Column(name = "logo_object_key")
     private String logoObjectKey;
 
+    /**
+     * A small logo stored inline as a {@code data:image/...;base64,...} URL. No
+     * object-storage provider is wired up yet, so this is the pragmatic path to a
+     * receipt logo without standing up S3/MinIO first. Size-capped where it's
+     * written (TenancyController) - fine for a receipt-sized logo, and small
+     * enough to not be a problem sitting in a text column.
+     */
+    @Column(name = "logo_data_url", columnDefinition = "text")
+    private String logoDataUrl;
+
     @Column(name = "receipt_footer")
     private String receiptFooter;
 

@@ -2,8 +2,11 @@ package com.possaas.reporting.web;
 
 import com.possaas.reporting.api.dto.ReportingDtos.DailySummaryResponse;
 import com.possaas.reporting.api.dto.ReportingDtos.MonthlySummaryResponse;
+import com.possaas.reporting.api.dto.ReportingDtos.SalesRangeResponse;
+import com.possaas.reporting.api.dto.ReportingDtos.TopCustomerRow;
 import com.possaas.reporting.service.ReportService;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
@@ -36,6 +39,19 @@ public class ReportController {
             @RequestParam(required = false) Integer year,
             @RequestParam(required = false) Integer month) {
         return reportService.monthlySummary(year, month);
+    }
+
+    @GetMapping("/sales")
+    public SalesRangeResponse sales(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return reportService.salesRange(from, to);
+    }
+
+    @GetMapping("/customers")
+    public List<TopCustomerRow> customers(
+            @RequestParam(required = false, defaultValue = "50") int size) {
+        return reportService.topCustomers(size);
     }
 
     @GetMapping("/bills/{billId}/invoice.pdf")

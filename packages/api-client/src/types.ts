@@ -1,5 +1,34 @@
 export type UUID = string;
 
+export interface Tenant {
+  id: UUID;
+  slug: string;
+  businessName: string;
+  legalName?: string | null;
+  taxIdentifier?: string | null;
+  status: string;
+  defaultCurrency: string;
+  timeZone: string;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+}
+
+export interface Outlet {
+  id: UUID;
+  code: string;
+  name: string;
+  defaultOutlet: boolean;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  phonePrimary?: string | null;
+  phoneSecondary?: string | null;
+  email?: string | null;
+  website?: string | null;
+  receiptFooter?: string | null;
+  logoDataUrl?: string | null;
+}
+
 export interface User {
   id: UUID;
   email: string;
@@ -10,6 +39,7 @@ export interface User {
   roles: string[];
   permissions: string[];
   platformAdmin: boolean;
+  hasPin: boolean;
 }
 
 export interface TokenResponse {

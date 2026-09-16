@@ -5,3 +5,102 @@ body,
 #root {
   height: 100%;
 }
+
+/* Printable receipt: rendered off-screen at all times, shown only when printing.
+   The physical @page size is injected at print time by lib/print.ts, since CSS
+   alone can't make @page respond to a runtime-selected format. */
+#receipt-print {
+  display: none;
+}
+
+@media print {
+  body > #root > *:not(#receipt-print) {
+    display: none !important;
+  }
+
+  #receipt-print {
+    display: block !important;
+    font-family: 'Courier New', monospace;
+    color: #000;
+    background: #fff;
+  }
+
+  body[data-print-format='thermal80'] #receipt-print {
+    width: 72mm;
+    font-size: 11px;
+  }
+
+  body[data-print-format='half-a4'] #receipt-print,
+  body[data-print-format='a4'] #receipt-print {
+    width: 100%;
+    font-size: 13px;
+  }
+
+  .receipt-logo {
+    display: block;
+    max-height: 60px;
+    max-width: 100%;
+    margin: 0 auto 4px;
+  }
+
+  .receipt-business-name {
+    text-align: center;
+    font-weight: bold;
+    font-size: 1.2em;
+    margin-bottom: 2px;
+  }
+
+  .receipt-line {
+    text-align: center;
+  }
+
+  .receipt-divider {
+    border-top: 1px dashed #000;
+    margin: 6px 0;
+  }
+
+  .receipt-lines {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .receipt-lines th {
+    text-align: left;
+    border-bottom: 1px solid #000;
+    padding-bottom: 2px;
+  }
+
+  .receipt-lines td {
+    padding: 2px 0;
+    vertical-align: top;
+  }
+
+  .receipt-col-qty {
+    text-align: center;
+    width: 15%;
+  }
+
+  .receipt-col-amt {
+    text-align: right;
+    width: 30%;
+  }
+
+  .receipt-row {
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .receipt-row-total {
+    font-weight: bold;
+    font-size: 1.1em;
+    border-top: 1px solid #000;
+    margin-top: 2px;
+    padding-top: 2px;
+  }
+
+  .receipt-footer {
+    text-align: center;
+    margin-top: 8px;
+    font-style: italic;
+  }
+}

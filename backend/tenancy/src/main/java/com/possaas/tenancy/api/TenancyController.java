@@ -1,5 +1,6 @@
 package com.possaas.tenancy.api;
 
+import com.possaas.common.error.ApiException;
 import com.possaas.tenancy.domain.LookupValue;
 import com.possaas.tenancy.domain.Outlet;
 import com.possaas.tenancy.domain.TaxRate;
@@ -33,6 +34,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1")
 public class TenancyController {
+
+    /** ~300 KB of base64 - plenty for a receipt-sized logo, small enough for a text column. */
+    private static final int MAX_LOGO_DATA_URL_LENGTH = 300_000;
 
     private final TenantService tenantService;
     private final OutletRepository outletRepository;
@@ -74,6 +78,9 @@ public class TenancyController {
         if (request.timeZone() != null) {
             tenant.setTimeZone(request.timeZone().trim());
         }
+        if (request.defaultCurrency() != null && !request.defaultCurrency().isBlank()) {
+            tenant.setDefaultCurrency(request.defaultCurrency().trim().toUpperCase(java.util.Locale.ROOT));
+        }
         return TenantResponse.from(tenantService.save(tenant));
     }
 
@@ -101,6 +108,17 @@ public class TenancyController {
         outlet.setEmail(request.email());
         outlet.setWebsite(request.website());
         outlet.setReceiptFooter(request.receiptFooter());
+        String logo = request.logoDataUrl() == null || request.logoDataUrl().isBlank()
+                ? null : request.logoDataUrl();
+        if (logo != null) {
+            if (!logo.startsWith("data:image/")) {
+                throw ApiException.validation("Logo must be an image data URL");
+            }
+            if (logo.length() > MAX_LOGO_DATA_URL_LENGTH) {
+                throw ApiException.validation("Logo is too large - please use a smaller image");
+            }
+        }
+        outlet.setLogoDataUrl(logo);
         return OutletResponse.from(outletRepository.save(outlet));
     }
 
@@ -166,7 +184,8 @@ public class TenancyController {
             @Size(max = 160) String legalName,
             @Size(max = 60) String taxIdentifier,
             @Size(max = 32) String contactPhone,
-            @Size(max = 60) String timeZone
+            @Size(max = 60) String timeZone,
+            @Size(min = 3, max = 3) String defaultCurrency
     ) {
     }
 
@@ -182,7 +201,8 @@ public class TenancyController {
             String phoneSecondary,
             String email,
             String website,
-            String receiptFooter
+            String receiptFooter,
+            String logoDataUrl
     ) {
         static OutletResponse from(Outlet outlet) {
             return new OutletResponse(
@@ -197,7 +217,8 @@ public class TenancyController {
                     outlet.getPhoneSecondary(),
                     outlet.getEmail(),
                     outlet.getWebsite(),
-                    outlet.getReceiptFooter());
+                    outlet.getReceiptFooter(),
+                    outlet.getLogoDataUrl());
         }
     }
 
@@ -210,7 +231,8 @@ public class TenancyController {
             String phoneSecondary,
             String email,
             String website,
-            String receiptFooter
+            String receiptFooter,
+            String logoDataUrl
     ) {
     }
 }

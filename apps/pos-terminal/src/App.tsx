@@ -39,10 +39,17 @@ const StoreIcon = Store as IconComponent;
 const ScanBarcodeIcon = ScanBarcode as IconComponent;
 const SettingsIcon = Settings as IconComponent;
 const FileCheck2Icon = FileCheck2 as IconComponent;
+import type { Outlet, Tenant } from '@possaas/api-client';
 import { api, money } from './lib/api';
-import { printReceipt } from './lib/print';
+import {
+  printReceipt,
+  getStoredReceiptFormat,
+  setStoredReceiptFormat,
+  type ReceiptFormat,
+} from './lib/print';
 import { Keypad } from './components/Keypad';
 import { LoginGate } from './components/LoginGate';
+import { Receipt } from './components/Receipt';
 
 type LocalLine = {
   key: string;
@@ -90,12 +97,30 @@ export default function App() {
   const [holdCartOpen, setHoldCartOpen] = useState(false);
   const [holdCartLabel, setHoldCartLabel] = useState('');
 
-  const [pinLocked, setPinLocked] = useState(() => !!localStorage.getItem('pos_pin'));
+  const [pinLocked, setPinLocked] = useState(() => !!api.auth.getStoredUser()?.hasPin);
   const [pinInput, setPinInput] = useState('');
+  const [pinVerifying, setPinVerifying] = useState(false);
   const [pinSettingOpen, setPinSettingOpen] = useState(false);
   const [newPin, setNewPin] = useState('');
+  const [pinPassword, setPinPassword] = useState('');
+  const [pinSaving, setPinSaving] = useState(false);
 
   const [lastBill, setLastBill] = useState<any>(null);
+  const [shopTenant, setShopTenant] = useState<Tenant | null>(null);
+  const [shopOutlet, setShopOutlet] = useState<Outlet | null>(null);
+  const [receiptFormat, setReceiptFormat] = useState<ReceiptFormat>(() => getStoredReceiptFormat());
+
+  useEffect(() => {
+    if (!user) return;
+    api.shop
+      .tenant()
+      .then(setShopTenant)
+      .catch(() => {});
+    api.shop
+      .outlets()
+      .then((outlets) => setShopOutlet(outlets.find((o) => o.defaultOutlet) ?? outlets[0] ?? null))
+      .catch(() => {});
+  }, [user]);
 
   const subtotal = useMemo(
     () => lines.reduce((sum, line) => sum + line.quantity * getEffectivePrice(line), 0),
@@ -345,17 +370,23 @@ export default function App() {
           </div>
           <Keypad
             onDigit={(d) => {
+              if (pinVerifying) return;
               const next = pinInput + d;
               if (next.length <= 4) {
                 setPinInput(next);
                 if (next.length === 4) {
-                  if (next === localStorage.getItem('pos_pin')) {
-                    setPinLocked(false);
-                    setPinInput('');
-                  } else {
-                    toast({ title: 'Invalid PIN', variant: 'destructive' });
-                    setPinInput('');
-                  }
+                  setPinVerifying(true);
+                  api.auth
+                    .verifyPin({ pin: next })
+                    .then(() => {
+                      setPinLocked(false);
+                      setPinInput('');
+                    })
+                    .catch(() => {
+                      toast({ title: 'Invalid PIN', variant: 'destructive' });
+                      setPinInput('');
+                    })
+                    .finally(() => setPinVerifying(false));
                 }
               }
             }}
@@ -383,23 +414,43 @@ export default function App() {
             </svg>
           </div>
           <h2 className="text-navy mb-2 text-2xl font-bold">Payment Successful</h2>
-          <p className="text-muted-foreground mb-8">
+          <p className="text-muted-foreground mb-6">
             Bill No: {lastBill.billNumber} • {money(lastBill.grandTotal)}
           </p>
+          <div className="mb-6">
+            <Select
+              value={receiptFormat}
+              onValueChange={(val) => {
+                const format = val as ReceiptFormat;
+                setReceiptFormat(format);
+                setStoredReceiptFormat(format);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="thermal80">80mm Thermal Receipt</SelectItem>
+                <SelectItem value="half-a4">Half A4</SelectItem>
+                <SelectItem value="a4">Full A4</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex flex-col gap-3">
             <Button
               size="lg"
               onClick={() => {
-                printReceipt(lastBill.billNumber);
+                printReceipt(lastBill.billNumber, receiptFormat);
               }}
             >
-              Print PDF Receipt
+              Print Receipt
             </Button>
             <Button size="lg" variant="outline" onClick={() => setLastBill(null)}>
               New Sale
             </Button>
           </div>
         </div>
+        <Receipt bill={lastBill} tenant={shopTenant} outlet={shopOutlet} />
       </div>
     );
   }
@@ -478,41 +529,79 @@ export default function App() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={pinSettingOpen} onOpenChange={setPinSettingOpen}>
+      <Dialog
+        open={pinSettingOpen}
+        onOpenChange={(open) => {
+          setPinSettingOpen(open);
+          if (!open) {
+            setNewPin('');
+            setPinPassword('');
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Set Screen Lock PIN</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <label className="text-sm font-medium">New PIN (4 digits)</label>
-            <Input
-              type="password"
-              maxLength={4}
-              value={newPin}
-              onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
-              placeholder="Leave empty to disable"
-              className="mt-1 text-center text-xl tracking-[1em]"
-            />
+          <div className="space-y-3 py-4">
+            <div>
+              <label className="text-sm font-medium">Your account password</label>
+              <Input
+                type="password"
+                value={pinPassword}
+                onChange={(e) => setPinPassword(e.target.value)}
+                placeholder="Confirm it's you"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">New PIN (4 digits)</label>
+              <Input
+                type="password"
+                maxLength={4}
+                value={newPin}
+                onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
+                placeholder="Leave empty to disable"
+                className="mt-1 text-center text-xl tracking-[1em]"
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPinSettingOpen(false)}>
               Cancel
             </Button>
             <Button
+              disabled={pinSaving}
               onClick={() => {
                 if (newPin.length > 0 && newPin.length !== 4) {
                   toast({ title: 'PIN must be 4 digits', variant: 'destructive' });
                   return;
                 }
-                if (newPin) {
-                  localStorage.setItem('pos_pin', newPin);
-                  toast({ title: 'PIN saved', variant: 'success' });
-                } else {
-                  localStorage.removeItem('pos_pin');
-                  toast({ title: 'PIN disabled', variant: 'success' });
+                if (!pinPassword) {
+                  toast({ title: 'Enter your password to confirm', variant: 'destructive' });
+                  return;
                 }
-                setPinSettingOpen(false);
-                setNewPin('');
+                setPinSaving(true);
+                api.auth
+                  .setPin({ password: pinPassword, pin: newPin })
+                  .then(() => {
+                    const stored = api.auth.getStoredUser();
+                    if (stored) {
+                      stored.hasPin = newPin.length > 0;
+                      api.tokens.setUserJson(JSON.stringify(stored));
+                    }
+                    toast({
+                      title: newPin ? 'PIN saved' : 'PIN disabled',
+                      variant: 'success',
+                    });
+                    setPinSettingOpen(false);
+                    setNewPin('');
+                    setPinPassword('');
+                  })
+                  .catch(() => {
+                    toast({ title: 'Incorrect password', variant: 'destructive' });
+                  })
+                  .finally(() => setPinSaving(false));
               }}
             >
               Save PIN

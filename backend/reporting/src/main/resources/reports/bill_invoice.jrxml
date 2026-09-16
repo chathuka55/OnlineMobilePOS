@@ -20,6 +20,8 @@
     <parameter name="DISCOUNT_TOTAL" class="java.math.BigDecimal"/>
     <parameter name="GRAND_TOTAL" class="java.math.BigDecimal"/>
     <parameter name="BILLED_AT" class="java.lang.String"/>
+    <parameter name="BUSINESS_NAME" class="java.lang.String"/>
+    <parameter name="LOGO_IMAGE" class="java.io.InputStream"/>
 
     <field name="lineNumber" class="java.lang.Short"/>
     <field name="itemSku" class="java.lang.String"/>
@@ -29,24 +31,35 @@
     <field name="netAmount" class="java.math.BigDecimal"/>
 
     <title>
-        <band height="90">
-            <staticText>
-                <reportElement x="0" y="0" width="555" height="24"/>
+        <band height="112">
+            <image onErrorType="Blank">
+                <reportElement x="485" y="0" width="70" height="70"/>
+                <imageExpression><![CDATA[$P{LOGO_IMAGE}]]></imageExpression>
+            </image>
+            <textField isBlankWhenNull="true">
+                <reportElement x="0" y="0" width="475" height="22"/>
                 <textElement>
-                    <font size="16" isBold="true"/>
+                    <font size="15" isBold="true"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{BUSINESS_NAME}]]></textFieldExpression>
+            </textField>
+            <staticText>
+                <reportElement x="0" y="22" width="475" height="22"/>
+                <textElement>
+                    <font size="14" isBold="true"/>
                 </textElement>
                 <text><![CDATA[TAX INVOICE]]></text>
             </staticText>
             <textField>
-                <reportElement x="0" y="28" width="555" height="16"/>
+                <reportElement x="0" y="50" width="475" height="16"/>
                 <textFieldExpression><![CDATA["Bill: " + $P{BILL_NUMBER}]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="0" y="46" width="555" height="16"/>
+                <reportElement x="0" y="68" width="475" height="16"/>
                 <textFieldExpression><![CDATA["Customer: " + $P{CUSTOMER_NAME}]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="0" y="64" width="555" height="16"/>
+                <reportElement x="0" y="86" width="475" height="16"/>
                 <textFieldExpression><![CDATA["Date: " + $P{BILLED_AT}]]></textFieldExpression>
             </textField>
         </band>

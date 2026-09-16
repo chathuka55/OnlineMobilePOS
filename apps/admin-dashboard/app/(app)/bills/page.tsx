@@ -19,9 +19,10 @@ import { PageHeader } from '@/components/page-header';
 import { api, asList, money } from '@/lib/api';
 
 function statusVariant(status: string) {
-  if (status === 'PAID') return 'success' as const;
-  if (status === 'VOID') return 'destructive' as const;
-  if (status === 'PARTIAL') return 'info' as const;
+  if (status === 'COMPLETED') return 'success' as const;
+  if (status === 'VOIDED') return 'destructive' as const;
+  if (status === 'PARTIALLY_PAID') return 'info' as const;
+  if (status === 'REFUNDED' || status === 'PARTIALLY_REFUNDED') return 'secondary' as const;
   return 'secondary' as const;
 }
 

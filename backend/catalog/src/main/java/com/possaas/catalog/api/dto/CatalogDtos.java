@@ -365,7 +365,8 @@ public final class CatalogDtos {
             BigDecimal quantity,
             BigDecimal unitCost,
             BigDecimal lineTotal,
-            String reason
+            String reason,
+            Boolean withinWarranty
     ) {
         public static SupplierReturnLineResponse from(SupplierReturnLine line) {
             return new SupplierReturnLineResponse(
@@ -376,7 +377,8 @@ public final class CatalogDtos {
                     line.getQuantity(),
                     line.getUnitCost(),
                     line.getLineTotal(),
-                    line.getReason());
+                    line.getReason(),
+                    line.getWithinWarranty());
         }
     }
 

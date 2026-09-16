@@ -29,9 +29,9 @@ import {
   TableRow,
   toast,
 } from '@possaas/ui';
-import { Eye, Plus, PenTool } from 'lucide-react';
+import { Eye, Plus, PenTool, Printer, Undo2 } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
-import { api, money } from '@/lib/api';
+import { api, asList, money } from '@/lib/api';
 
 // Matches backend RepairOrderStatus (backend/repairs/domain/RepairOrderStatus.java) exactly.
 export type RepairStatus =
@@ -151,6 +151,22 @@ export default function RepairsPage() {
   const [form, setForm] = useState<RepairForm>(emptyForm);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(0);
+  const [lineOpen, setLineOpen] = useState(false);
+  const [lineForm, setLineForm] = useState({
+    lineType: 'PART' as 'PART' | 'LABOUR' | 'SERVICE',
+    itemId: '',
+    description: '',
+    quantity: 1,
+    unitPrice: 0,
+  });
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [refundForm, setRefundForm] = useState({ amount: 0, reason: '' });
+
+  const itemsQuery = useQuery({
+    queryKey: ['items', 'for-repairs'],
+    queryFn: () => api.items.list({ size: 500 }),
+  });
+  const items = useMemo(() => asList(itemsQuery.data), [itemsQuery.data]);
 
   const repairsQuery = useQuery({
     queryKey: ['repairs', q, statusFilter],
@@ -240,6 +256,97 @@ export default function RepairsPage() {
       });
     },
   });
+
+  const addLineMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return api.post<Repair>(`/api/v1/repairs/${id}/lines`, {
+        lineType: lineForm.lineType,
+        itemId: lineForm.lineType === 'PART' ? lineForm.itemId || undefined : undefined,
+        description: lineForm.description,
+        quantity: lineForm.quantity,
+        unitPrice: lineForm.unitPrice,
+      });
+    },
+    onSuccess: (updated) => {
+      toast({ title: 'Line added', variant: 'success' });
+      setSelectedRepair(updated);
+      setLineOpen(false);
+      setLineForm({ lineType: 'PART', itemId: '', description: '', quantity: 1, unitPrice: 0 });
+      void queryClient.invalidateQueries({ queryKey: ['repairs'] });
+    },
+    onError: (err) => {
+      toast({
+        title: 'Could not add line',
+        description: err instanceof ApiError ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const refundMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return api.post<Repair>(`/api/v1/repairs/${id}/refund`, {
+        amount: refundForm.amount,
+        method: 'CASH',
+        reason: refundForm.reason || undefined,
+        restoreParts: false,
+      });
+    },
+    onSuccess: (updated) => {
+      toast({ title: 'Refund issued', variant: 'success' });
+      setSelectedRepair(updated);
+      setRefundOpen(false);
+      setRefundForm({ amount: 0, reason: '' });
+      void queryClient.invalidateQueries({ queryKey: ['repairs'] });
+    },
+    onError: (err) => {
+      toast({
+        title: 'Refund failed',
+        description: err instanceof ApiError ? err.message : 'Could not process refund',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  function printRepairSlip(repair: Repair) {
+    const win = window.open('', '_blank', 'width=420,height=640');
+    if (!win) return;
+    const row = (label: string, value: string) =>
+      `<div style="display:flex;justify-content:space-between;gap:12px;"><span>${label}</span><span>${value}</span></div>`;
+    win.document.write(`
+      <html>
+        <head>
+          <title>Repair ${repair.repairNumber}</title>
+          <style>
+            body { font-family: 'Courier New', monospace; padding: 16px; font-size: 13px; }
+            h2 { text-align: center; margin-bottom: 4px; }
+            hr { border: none; border-top: 1px dashed #000; margin: 10px 0; }
+          </style>
+        </head>
+        <body>
+          <h2>Repair Slip</h2>
+          ${row('Repair #', repair.repairNumber)}
+          ${row('Date', new Date(repair.receivedAt).toLocaleDateString())}
+          <hr />
+          ${row('Customer', repair.customerName)}
+          ${repair.customerPhone ? row('Phone', repair.customerPhone) : ''}
+          ${row('Device', deviceSummary(repair))}
+          ${repair.deviceSerial ? row('Serial', repair.deviceSerial) : ''}
+          <hr />
+          <p><b>Complaint:</b><br/>${repair.reportedFault ?? ''}</p>
+          <hr />
+          ${row('Status', STATUS_LABELS[repair.status] ?? repair.status)}
+          ${repair.estimatedCost ? row('Estimated Cost', money(repair.estimatedCost)) : ''}
+          ${repair.grandTotal ? row('Total', money(repair.grandTotal)) : ''}
+          ${repair.amountPaid ? row('Paid', money(repair.amountPaid)) : ''}
+          ${repair.balanceDue ? row('Balance Due', money(repair.balanceDue)) : ''}
+        </body>
+      </html>
+    `);
+    win.document.close();
+    win.focus();
+    win.print();
+  }
 
   function openCreate() {
     setForm(emptyForm);
@@ -613,9 +720,17 @@ export default function RepairsPage() {
                   ) : null}
                 </div>
 
-                {selectedRepair.lines && selectedRepair.lines.length > 0 && (
-                  <div>
-                    <h3 className="mb-3 font-semibold">Parts / Charges</h3>
+                <div>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="font-semibold">Parts / Charges</h3>
+                    {!TERMINAL_STATUSES.includes(selectedRepair.status) && (
+                      <Button type="button" variant="outline" size="sm" onClick={() => setLineOpen(true)}>
+                        <Plus className="h-3 w-3" />
+                        Add Line
+                      </Button>
+                    )}
+                  </div>
+                  {selectedRepair.lines && selectedRepair.lines.length > 0 ? (
                     <div className="space-y-1 text-sm">
                       {selectedRepair.lines.map((line) => (
                         <div key={line.id} className="flex justify-between">
@@ -626,8 +741,10 @@ export default function RepairsPage() {
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <p className="text-muted-foreground text-sm">No parts or charges added yet.</p>
+                  )}
+                </div>
 
                 {selectedRepair.history && selectedRepair.history.length > 0 && (
                   <div>
@@ -666,6 +783,27 @@ export default function RepairsPage() {
                   <div></div>
                 )}
                 <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => printRepairSlip(selectedRepair)}
+                  >
+                    <Printer className="h-4 w-4" />
+                    Print
+                  </Button>
+                  {(selectedRepair.amountPaid ?? 0) > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setRefundForm({ amount: selectedRepair.amountPaid ?? 0, reason: '' });
+                        setRefundOpen(true);
+                      }}
+                    >
+                      <Undo2 className="h-4 w-4" />
+                      Refund
+                    </Button>
+                  )}
                   {(selectedRepair.balanceDue ?? 0) > 0 && (
                     <Button
                       type="button"
@@ -700,6 +838,164 @@ export default function RepairsPage() {
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ADD LINE DIALOG */}
+      <Dialog open={lineOpen} onOpenChange={setLineOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Part / Charge</DialogTitle>
+            <DialogDescription>Add a part, labour, or service charge to this repair.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Type</Label>
+              <Select
+                value={lineForm.lineType}
+                onValueChange={(v) =>
+                  setLineForm((f) => ({ ...f, lineType: v as typeof f.lineType, itemId: '' }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PART">Part</SelectItem>
+                  <SelectItem value="LABOUR">Labour</SelectItem>
+                  <SelectItem value="SERVICE">Service</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {lineForm.lineType === 'PART' && (
+              <div className="space-y-2">
+                <Label>Item</Label>
+                <Select
+                  value={lineForm.itemId}
+                  onValueChange={(v) => {
+                    const item = items.find((i) => i.id === v);
+                    setLineForm((f) => ({
+                      ...f,
+                      itemId: v,
+                      description: item ? item.name : f.description,
+                      unitPrice: item ? Number(item.retailPrice) : f.unitPrice,
+                    }));
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a stock item" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {items.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name} ({money(item.retailPrice)})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="lineDescription">Description</Label>
+              <Input
+                id="lineDescription"
+                required
+                value={lineForm.description}
+                onChange={(e) => setLineForm((f) => ({ ...f, description: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="lineQuantity">Quantity</Label>
+                <Input
+                  id="lineQuantity"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={lineForm.quantity || ''}
+                  onChange={(e) =>
+                    setLineForm((f) => ({ ...f, quantity: Number(e.target.value) || 0 }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lineUnitPrice">Unit Price</Label>
+                <Input
+                  id="lineUnitPrice"
+                  type="number"
+                  step="0.01"
+                  value={lineForm.unitPrice || ''}
+                  onChange={(e) =>
+                    setLineForm((f) => ({ ...f, unitPrice: Number(e.target.value) || 0 }))
+                  }
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setLineOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                addLineMutation.isPending || !lineForm.description || lineForm.quantity <= 0
+              }
+              onClick={() => {
+                if (selectedRepair) addLineMutation.mutate(selectedRepair.id);
+              }}
+            >
+              {addLineMutation.isPending ? 'Adding…' : 'Add Line'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* REFUND DIALOG */}
+      <Dialog open={refundOpen} onOpenChange={setRefundOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Refund Repair Payment</DialogTitle>
+            <DialogDescription>
+              Amount paid so far: {selectedRepair ? money(selectedRepair.amountPaid ?? 0) : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="refundAmount">Refund Amount</Label>
+              <Input
+                id="refundAmount"
+                type="number"
+                step="0.01"
+                autoFocus
+                value={refundForm.amount || ''}
+                onChange={(e) =>
+                  setRefundForm((f) => ({ ...f, amount: Number(e.target.value) || 0 }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="refundReason">Reason</Label>
+              <Input
+                id="refundReason"
+                value={refundForm.reason}
+                onChange={(e) => setRefundForm((f) => ({ ...f, reason: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setRefundOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={refundMutation.isPending || refundForm.amount <= 0}
+              onClick={() => {
+                if (selectedRepair) refundMutation.mutate(selectedRepair.id);
+              }}
+            >
+              {refundMutation.isPending ? 'Processing…' : 'Issue Refund'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

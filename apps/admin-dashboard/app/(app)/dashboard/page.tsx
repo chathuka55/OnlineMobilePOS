@@ -172,7 +172,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-semibold">{money(bill.grandTotal)}</p>
-                        <Badge variant={bill.status === 'PAID' ? 'success' : 'secondary'}>
+                        <Badge variant={bill.status === 'COMPLETED' ? 'success' : 'secondary'}>
                           {bill.status}
                         </Badge>
                       </div>

@@ -133,6 +133,12 @@ public class SupplierReturnService {
             line.setUnitCost(unitCost);
             line.setLineTotal(lineTotal);
             line.setReason(blankToNull(lineRequest.reason()));
+            if (lineRequest.itemSerialId() != null) {
+                line.setWithinWarranty(itemSerialRepository.findById(lineRequest.itemSerialId())
+                        .map(ItemSerial::getWarrantyEndsOn)
+                        .map(end -> !end.isBefore(java.time.LocalDate.now()))
+                        .orElse(null));
+            }
             lines.add(line);
 
             stockLedgerService.supplierReturn(

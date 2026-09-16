@@ -41,4 +41,12 @@ public class SupplierReturnLine extends TenantOwnedEntity {
 
     @Column(name = "reason")
     private String reason;
+
+    /**
+     * Whether the returned serial's warranty was still valid at the moment of
+     * return. Null when the item isn't serial-tracked (no warranty window to
+     * check) or has no warranty configured.
+     */
+    @Column(name = "within_warranty")
+    private Boolean withinWarranty;
 }

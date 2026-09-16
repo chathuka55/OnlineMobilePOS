@@ -11,11 +11,19 @@ import {
   type CustomerRequest,
   type Item,
   type ItemRequest,
+  type Category,
+  type CategoryRequest,
+  type CreateRefundRequest,
+  type Grn,
+  type GrnCreateRequest,
   type LoginRequest,
   type Outlet,
   type Page,
   type RefreshRequest,
+  type Refund,
   type SignupRequest,
+  type Supplier,
+  type SupplierRequest,
   type Tenant,
   type TokenResponse,
   type User,
@@ -222,6 +230,45 @@ export function createPosApiClient(options: PosApiClientOptions = {}) {
       },
     },
 
+    categories: {
+      list(activeOnly?: boolean) {
+        return get<Category[]>('/api/v1/categories', { activeOnly });
+      },
+      create(payload: CategoryRequest) {
+        return post<Category>('/api/v1/categories', payload);
+      },
+      update(id: UUID, payload: CategoryRequest) {
+        return put<Category>(`/api/v1/categories/${id}`, payload);
+      },
+    },
+
+    suppliers: {
+      list(params?: { q?: string; page?: number; size?: number }) {
+        return get<Page<Supplier> | Supplier[]>('/api/v1/suppliers', params);
+      },
+      get(id: UUID) {
+        return get<Supplier>(`/api/v1/suppliers/${id}`);
+      },
+      create(payload: SupplierRequest) {
+        return post<Supplier>('/api/v1/suppliers', payload);
+      },
+      update(id: UUID, payload: SupplierRequest) {
+        return put<Supplier>(`/api/v1/suppliers/${id}`, payload);
+      },
+    },
+
+    grns: {
+      list(params?: { page?: number; size?: number }) {
+        return get<Page<Grn> | Grn[]>('/api/v1/grns', params);
+      },
+      get(id: UUID) {
+        return get<Grn>(`/api/v1/grns/${id}`);
+      },
+      create(payload: GrnCreateRequest) {
+        return post<Grn>('/api/v1/grns', payload);
+      },
+    },
+
     items: {
       list(params?: { q?: string; page?: number; size?: number; active?: boolean }) {
         return get<Page<Item> | Item[]>('/api/v1/items', params);
@@ -279,6 +326,15 @@ export function createPosApiClient(options: PosApiClientOptions = {}) {
       },
       void(billId: UUID, reason?: string) {
         return post<Bill>(`/api/v1/bills/${billId}/void`, { reason });
+      },
+    },
+
+    refunds: {
+      create(payload: CreateRefundRequest) {
+        return post<Refund>('/api/v1/refunds', payload);
+      },
+      get(id: UUID) {
+        return get<Refund>(`/api/v1/refunds/${id}`);
       },
     },
 

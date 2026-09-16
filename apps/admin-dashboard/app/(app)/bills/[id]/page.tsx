@@ -2,7 +2,9 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { ApiError, type CreateRefundRequest, type RefundSettlement } from '@possaas/api-client';
 import {
   Badge,
   Button,
@@ -10,6 +12,19 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Spinner,
   Table,
   TableBody,
@@ -17,19 +32,84 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  toast,
 } from '@possaas/ui';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Undo2, Ban } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
 import { api, money } from '@/lib/api';
+
+const VOIDABLE = ['UNPAID', 'PARTIALLY_PAID', 'COMPLETED'];
+const REFUNDABLE = ['COMPLETED', 'PARTIALLY_REFUNDED'];
 
 export default function BillDetailPage() {
   const params = useParams<{ id: string }>();
   const billId = params.id;
+  const queryClient = useQueryClient();
+
+  const [voidOpen, setVoidOpen] = useState(false);
+  const [voidReason, setVoidReason] = useState('');
+
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [refundScope, setRefundScope] = useState<'FULL' | 'PARTIAL'>('FULL');
+  const [settlement, setSettlement] = useState<RefundSettlement>('CASH');
+  const [restock, setRestock] = useState(true);
+  const [reason, setReason] = useState('');
+  const [selectedLines, setSelectedLines] = useState<Record<string, number>>({});
 
   const billQuery = useQuery({
     queryKey: ['bills', billId],
     queryFn: () => api.bills.get(billId),
     enabled: Boolean(billId),
+  });
+
+  const voidMutation = useMutation({
+    mutationFn: () => api.bills.void(billId, voidReason || undefined),
+    onSuccess: () => {
+      toast({ title: 'Bill voided', variant: 'success' });
+      setVoidOpen(false);
+      setVoidReason('');
+      void queryClient.invalidateQueries({ queryKey: ['bills', billId] });
+    },
+    onError: (err) => {
+      toast({
+        title: 'Could not void bill',
+        description: err instanceof ApiError ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const refundMutation = useMutation({
+    mutationFn: () => {
+      const payload: CreateRefundRequest = {
+        billId,
+        refundType: refundScope,
+        settlement,
+        restock,
+        reason: reason || undefined,
+        lines:
+          refundScope === 'PARTIAL'
+            ? Object.entries(selectedLines)
+                .filter(([, qty]) => qty > 0)
+                .map(([billLineId, qty]) => ({ billLineId, quantity: qty }))
+            : undefined,
+      };
+      return api.refunds.create(payload);
+    },
+    onSuccess: () => {
+      toast({ title: 'Refund processed', variant: 'success' });
+      setRefundOpen(false);
+      setReason('');
+      setSelectedLines({});
+      void queryClient.invalidateQueries({ queryKey: ['bills', billId] });
+    },
+    onError: (err) => {
+      toast({
+        title: 'Refund failed',
+        description: err instanceof ApiError ? err.message : 'Could not process refund',
+        variant: 'destructive',
+      });
+    },
   });
 
   if (billQuery.isLoading) {
@@ -52,18 +132,42 @@ export default function BillDetailPage() {
     );
   }
 
+  const canVoid = VOIDABLE.includes(bill.status);
+  const canRefund = REFUNDABLE.includes(bill.status);
+
   return (
     <div>
       <PageHeader
         title={bill.billNumber}
         description={`${bill.customerName || 'Walk-in'} · ${new Date(bill.billedAt).toLocaleString()}`}
         actions={
-          <Button asChild variant="outline">
-            <Link href="/bills">
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {canRefund && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setRefundScope('FULL');
+                  setSelectedLines({});
+                  setRefundOpen(true);
+                }}
+              >
+                <Undo2 className="h-4 w-4" />
+                Return / Refund
+              </Button>
+            )}
+            {canVoid && (
+              <Button variant="destructive" onClick={() => setVoidOpen(true)}>
+                <Ban className="h-4 w-4" />
+                Void Bill
+              </Button>
+            )}
+            <Button asChild variant="outline">
+              <Link href="/bills">
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Link>
+            </Button>
+          </div>
         }
       />
 
@@ -84,6 +188,7 @@ export default function BillDetailPage() {
                 <TableRow>
                   <TableHead>Item</TableHead>
                   <TableHead>Qty</TableHead>
+                  <TableHead>Returned</TableHead>
                   <TableHead>Price</TableHead>
                   <TableHead>Total</TableHead>
                 </TableRow>
@@ -96,6 +201,9 @@ export default function BillDetailPage() {
                       <p className="text-muted-foreground text-xs">{line.itemSku}</p>
                     </TableCell>
                     <TableCell>{Number(line.quantity)}</TableCell>
+                    <TableCell>
+                      {Number(line.quantityReturned) > 0 ? Number(line.quantityReturned) : '—'}
+                    </TableCell>
                     <TableCell>{money(line.unitPrice)}</TableCell>
                     <TableCell>{money(line.lineTotal)}</TableCell>
                   </TableRow>
@@ -142,6 +250,147 @@ export default function BillDetailPage() {
           </Card>
         </div>
       </div>
+
+      {/* VOID DIALOG */}
+      <Dialog open={voidOpen} onOpenChange={setVoidOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Void Bill {bill.billNumber}</DialogTitle>
+            <DialogDescription>
+              This restores stock and reverses payments/credit applied to this bill. This cannot
+              be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="voidReason">Reason</Label>
+            <Input
+              id="voidReason"
+              value={voidReason}
+              onChange={(e) => setVoidReason(e.target.value)}
+              placeholder="e.g. Entered by mistake"
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setVoidOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={voidMutation.isPending}
+              onClick={() => voidMutation.mutate()}
+            >
+              {voidMutation.isPending ? 'Voiding…' : 'Void Bill'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* REFUND DIALOG */}
+      <Dialog open={refundOpen} onOpenChange={setRefundOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Return / Refund {bill.billNumber}</DialogTitle>
+            <DialogDescription>
+              Full returns the whole bill; partial lets you pick specific lines and quantities.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Scope</Label>
+              <Select value={refundScope} onValueChange={(v) => setRefundScope(v as 'FULL' | 'PARTIAL')}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="FULL">Full return</SelectItem>
+                  <SelectItem value="PARTIAL">Partial return</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {refundScope === 'PARTIAL' && (
+              <div className="space-y-2">
+                <Label>Lines to return</Label>
+                <div className="space-y-2 rounded-md border p-2">
+                  {bill.lines?.map((line) => {
+                    const remaining = Number(line.quantity) - Number(line.quantityReturned || 0);
+                    if (remaining <= 0) return null;
+                    return (
+                      <div key={line.id} className="flex items-center justify-between gap-2 text-sm">
+                        <span className="flex-1">
+                          {line.itemName} (max {remaining})
+                        </span>
+                        <Input
+                          type="number"
+                          className="w-20"
+                          min="0"
+                          max={remaining}
+                          value={selectedLines[line.id] || ''}
+                          onChange={(e) =>
+                            setSelectedLines((s) => ({
+                              ...s,
+                              [line.id]: Math.min(Number(e.target.value) || 0, remaining),
+                            }))
+                          }
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>Settlement Method</Label>
+              <Select value={settlement} onValueChange={(v) => setSettlement(v as RefundSettlement)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CASH">Cash</SelectItem>
+                  <SelectItem value="CARD_REVERSAL">Card Reversal</SelectItem>
+                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                  <SelectItem value="CHEQUE">Cheque</SelectItem>
+                  <SelectItem value="CREDIT_NOTE">Store Credit</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="restock"
+                checked={restock}
+                onChange={(e) => setRestock(e.target.checked)}
+                className="rounded border-gray-300"
+              />
+              <Label htmlFor="restock" className="cursor-pointer">
+                Return items to stock
+              </Label>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="refundReason">Reason</Label>
+              <Input id="refundReason" value={reason} onChange={(e) => setReason(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setRefundOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                refundMutation.isPending ||
+                (refundScope === 'PARTIAL' &&
+                  Object.values(selectedLines).every((q) => !q || q <= 0))
+              }
+              onClick={() => refundMutation.mutate()}
+            >
+              {refundMutation.isPending ? 'Processing…' : 'Process Refund'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

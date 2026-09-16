@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useMemo, useState } from 'react';
-import { ApiError } from '@possaas/api-client';
+import { ApiError, type Supplier, type SupplierRequest, type GrnCreateRequest } from '@possaas/api-client';
 import {
   Badge,
   Button,
@@ -37,31 +37,9 @@ import { Pencil, Plus, Truck, PackagePlus } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
 import { api, asList, money } from '@/lib/api';
 
-interface Supplier {
-  id: string;
-  code: string;
-  companyName: string;
-  contactPerson: string;
-  phonePrimary: string;
-  email: string;
-  addressLine1: string;
-  city: string;
-  notes: string;
-  active: boolean;
-}
-
-interface GRN {
-  id: string;
-  grnNumber: string;
-  supplierId: string;
-  supplierName?: string;
-  date: string;
-  totalAmount: number;
-}
-
-const emptySupplier = {
+const emptySupplier: SupplierRequest = {
   code: '',
-  companyName: '',
+  name: '',
   contactPerson: '',
   phonePrimary: '',
   email: '',
@@ -71,27 +49,33 @@ const emptySupplier = {
   active: true,
 };
 
+type GrnLineForm = {
+  itemId: string;
+  quantity: number;
+  unitCost: number;
+  warrantyMonths: number;
+  serialNumbersText: string;
+};
+
+const emptyGrnForm = {
+  supplierId: '',
+  date: new Date().toISOString().split('T')[0] ?? '',
+  lines: [] as GrnLineForm[],
+};
+
 export default function SuppliersPage() {
   const queryClient = useQueryClient();
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Supplier | null>(null);
-  const [form, setForm] = useState(emptySupplier);
+  const [form, setForm] = useState<SupplierRequest>(emptySupplier);
 
   const [grnOpen, setGrnOpen] = useState(false);
-  const [grnForm, setGrnForm] = useState<{
-    supplierId: string;
-    date: string;
-    lines: { itemId: string; quantity: number; unitCost: number }[];
-  }>({
-    supplierId: '',
-    date: new Date().toISOString().split('T')[0] ?? '',
-    lines: [],
-  });
+  const [grnForm, setGrnForm] = useState(emptyGrnForm);
 
   const suppliersQuery = useQuery({
     queryKey: ['suppliers', q],
-    queryFn: () => api.get<Supplier[]>('/api/v1/suppliers', { size: 100, q: q || undefined }),
+    queryFn: () => api.suppliers.list({ size: 100, q: q || undefined }),
   });
   const suppliers = useMemo(() => asList(suppliersQuery.data), [suppliersQuery.data]);
 
@@ -101,16 +85,19 @@ export default function SuppliersPage() {
   });
   const items = useMemo(() => asList(itemsQuery.data), [itemsQuery.data]);
 
+  const itemsById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
+
   const grnsQuery = useQuery({
     queryKey: ['grns'],
-    queryFn: () => api.get<GRN[]>('/api/v1/grns', { size: 50 }),
+    queryFn: () => api.grns.list({ size: 50 }),
   });
   const grns = useMemo(() => asList(grnsQuery.data), [grnsQuery.data]);
+  const suppliersById = useMemo(() => new Map(suppliers.map((s) => [s.id, s])), [suppliers]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (editing) return api.put(`/api/v1/suppliers/${editing.id}`, form);
-      return api.post('/api/v1/suppliers', form);
+      if (editing) return api.suppliers.update(editing.id, form);
+      return api.suppliers.create(form);
     },
     onSuccess: () => {
       toast({ title: editing ? 'Supplier updated' : 'Supplier created', variant: 'success' });
@@ -130,12 +117,29 @@ export default function SuppliersPage() {
 
   const saveGrnMutation = useMutation({
     mutationFn: async () => {
-      return api.post('/api/v1/grns', grnForm);
+      const payload: GrnCreateRequest = {
+        supplierId: grnForm.supplierId || undefined,
+        receivedAt: grnForm.date ? new Date(`${grnForm.date}T00:00:00`).toISOString() : undefined,
+        lines: grnForm.lines.map((l) => ({
+          itemId: l.itemId,
+          quantity: l.quantity,
+          unitCost: l.unitCost,
+          warrantyMonths: l.warrantyMonths || undefined,
+          serialNumbers: l.serialNumbersText
+            ? l.serialNumbersText
+                .split(/[\n,]/)
+                .map((s) => s.trim())
+                .filter(Boolean)
+            : undefined,
+        })),
+      };
+      return api.grns.create(payload);
     },
     onSuccess: () => {
       toast({ title: 'GRN created', variant: 'success' });
       setGrnOpen(false);
       void queryClient.invalidateQueries({ queryKey: ['grns'] });
+      void queryClient.invalidateQueries({ queryKey: ['items'] });
     },
     onError: (err) => {
       toast({
@@ -156,7 +160,7 @@ export default function SuppliersPage() {
     setEditing(supplier);
     setForm({
       code: supplier.code ?? '',
-      companyName: supplier.companyName,
+      name: supplier.name,
       contactPerson: supplier.contactPerson ?? '',
       phonePrimary: supplier.phonePrimary ?? '',
       email: supplier.email ?? '',
@@ -238,7 +242,7 @@ export default function SuppliersPage() {
                   {suppliers.map((s) => (
                     <TableRow key={s.id}>
                       <TableCell className="font-medium">{s.code}</TableCell>
-                      <TableCell>{s.companyName}</TableCell>
+                      <TableCell>{s.name}</TableCell>
                       <TableCell>{s.contactPerson || '—'}</TableCell>
                       <TableCell>
                         <div className="text-sm">{s.phonePrimary || '—'}</div>
@@ -267,11 +271,7 @@ export default function SuppliersPage() {
           <div className="flex justify-end">
             <Button
               onClick={() => {
-                setGrnForm({
-                  supplierId: '',
-                  date: new Date().toISOString().split('T')[0] ?? '',
-                  lines: [],
-                });
+                setGrnForm(emptyGrnForm);
                 setGrnOpen(true);
               }}
             >
@@ -301,11 +301,11 @@ export default function SuppliersPage() {
                   {grns.map((g) => (
                     <TableRow key={g.id}>
                       <TableCell className="text-navy font-medium">{g.grnNumber}</TableCell>
-                      <TableCell>{g.date}</TableCell>
-                      <TableCell>{g.supplierName || g.supplierId}</TableCell>
-                      <TableCell className="text-right font-medium">
-                        {money(g.totalAmount)}
+                      <TableCell>{new Date(g.receivedAt).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        {g.supplierId ? (suppliersById.get(g.supplierId)?.name ?? g.supplierId) : '—'}
                       </TableCell>
+                      <TableCell className="text-right font-medium">{money(g.total)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -326,18 +326,17 @@ export default function SuppliersPage() {
               <Label htmlFor="code">Code</Label>
               <Input
                 id="code"
-                required
                 value={form.code}
                 onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="companyName">Company Name</Label>
+              <Label htmlFor="name">Company Name</Label>
               <Input
-                id="companyName"
+                id="name"
                 required
-                value={form.companyName}
-                onChange={(e) => setForm((f) => ({ ...f, companyName: e.target.value }))}
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               />
             </div>
             <div className="space-y-2">
@@ -402,7 +401,7 @@ export default function SuppliersPage() {
       </Dialog>
 
       <Dialog open={grnOpen} onOpenChange={setGrnOpen}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>New Goods Received Note</DialogTitle>
             <DialogDescription>Record items received from a supplier.</DialogDescription>
@@ -421,7 +420,7 @@ export default function SuppliersPage() {
                   <SelectContent>
                     {suppliers.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
-                        {s.companyName}
+                        {s.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -448,71 +447,108 @@ export default function SuppliersPage() {
                   onClick={() =>
                     setGrnForm((f) => ({
                       ...f,
-                      lines: [...f.lines, { itemId: '', quantity: 1, unitCost: 0 }],
+                      lines: [
+                        ...f.lines,
+                        { itemId: '', quantity: 1, unitCost: 0, warrantyMonths: 0, serialNumbersText: '' },
+                      ],
                     }))
                   }
                 >
                   Add Item
                 </Button>
               </div>
-              {grnForm.lines.map((line, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <Select
-                    value={line.itemId}
-                    onValueChange={(v) => {
-                      const newLines = [...grnForm.lines];
-                      newLines[i]!.itemId = v;
-                      setGrnForm((f) => ({ ...f, lines: newLines }));
-                    }}
-                  >
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Select item" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {items.map((item) => (
-                        <SelectItem key={item.id} value={item.id}>
-                          {item.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    type="number"
-                    placeholder="Qty"
-                    className="w-20"
-                    min="1"
-                    value={line.quantity || ''}
-                    onChange={(e) => {
-                      const newLines = [...grnForm.lines];
-                      newLines[i]!.quantity = Number(e.target.value);
-                      setGrnForm((f) => ({ ...f, lines: newLines }));
-                    }}
-                  />
-                  <Input
-                    type="number"
-                    placeholder="Unit Cost"
-                    className="w-28"
-                    step="0.01"
-                    value={line.unitCost || ''}
-                    onChange={(e) => {
-                      const newLines = [...grnForm.lines];
-                      newLines[i]!.unitCost = Number(e.target.value);
-                      setGrnForm((f) => ({ ...f, lines: newLines }));
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      const newLines = grnForm.lines.filter((_, idx) => idx !== i);
-                      setGrnForm((f) => ({ ...f, lines: newLines }));
-                    }}
-                  >
-                    &times;
-                  </Button>
-                </div>
-              ))}
+              {grnForm.lines.map((line, i) => {
+                const selectedItem = itemsById.get(line.itemId);
+                return (
+                  <div key={i} className="space-y-2 rounded-md border p-3">
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={line.itemId}
+                        onValueChange={(v) => {
+                          const newLines = [...grnForm.lines];
+                          newLines[i]!.itemId = v;
+                          setGrnForm((f) => ({ ...f, lines: newLines }));
+                        }}
+                      >
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Select item" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {items.map((item) => (
+                            <SelectItem key={item.id} value={item.id}>
+                              {item.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="number"
+                        placeholder="Qty"
+                        className="w-20"
+                        min="1"
+                        value={line.quantity || ''}
+                        onChange={(e) => {
+                          const newLines = [...grnForm.lines];
+                          newLines[i]!.quantity = Number(e.target.value);
+                          setGrnForm((f) => ({ ...f, lines: newLines }));
+                        }}
+                      />
+                      <Input
+                        type="number"
+                        placeholder="Unit Cost"
+                        className="w-28"
+                        step="0.01"
+                        value={line.unitCost || ''}
+                        onChange={(e) => {
+                          const newLines = [...grnForm.lines];
+                          newLines[i]!.unitCost = Number(e.target.value);
+                          setGrnForm((f) => ({ ...f, lines: newLines }));
+                        }}
+                      />
+                      <Input
+                        type="number"
+                        placeholder="Warranty (mo)"
+                        className="w-24"
+                        min="0"
+                        value={line.warrantyMonths || ''}
+                        onChange={(e) => {
+                          const newLines = [...grnForm.lines];
+                          newLines[i]!.warrantyMonths = Number(e.target.value);
+                          setGrnForm((f) => ({ ...f, lines: newLines }));
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          const newLines = grnForm.lines.filter((_, idx) => idx !== i);
+                          setGrnForm((f) => ({ ...f, lines: newLines }));
+                        }}
+                      >
+                        &times;
+                      </Button>
+                    </div>
+                    {selectedItem?.hasSerialTracking && (
+                      <div className="space-y-1">
+                        <Label className="text-xs">
+                          Serial numbers / IMEIs (one per line or comma-separated — must match
+                          quantity: {line.quantity || 0})
+                        </Label>
+                        <textarea
+                          className="border-input placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-[60px] w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1"
+                          value={line.serialNumbersText}
+                          onChange={(e) => {
+                            const newLines = [...grnForm.lines];
+                            newLines[i]!.serialNumbersText = e.target.value;
+                            setGrnForm((f) => ({ ...f, lines: newLines }));
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             <DialogFooter>

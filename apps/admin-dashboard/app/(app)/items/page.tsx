@@ -15,6 +15,11 @@ import {
   EmptyState,
   Input,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Spinner,
   Table,
   TableBody,
@@ -31,14 +36,23 @@ import { api, asList, money } from '@/lib/api';
 const emptyForm: ItemRequest = {
   sku: '',
   name: '',
+  categoryId: null,
+  supplierId: null,
   retailPrice: 0,
   costPrice: 0,
   wholesalePrice: 0,
   unitOfMeasure: 'EA',
+  reorderLevel: 0,
   trackInventory: true,
+  hasSerialTracking: false,
+  oldStock: false,
+  warrantyMonths: 0,
+  warrantyLabel: '',
   active: true,
   barcodes: [],
 };
+
+const NONE = '__none__';
 
 export default function ItemsPage() {
   const queryClient = useQueryClient();
@@ -54,6 +68,38 @@ export default function ItemsPage() {
   });
 
   const items = useMemo(() => asList(itemsQuery.data), [itemsQuery.data]);
+
+  const categoriesQuery = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => api.categories.list(),
+  });
+  const categories = categoriesQuery.data ?? [];
+  const [newCategoryOpen, setNewCategoryOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+
+  const createCategoryMutation = useMutation({
+    mutationFn: (name: string) => api.categories.create({ name }),
+    onSuccess: (created) => {
+      toast({ title: 'Category created', variant: 'success' });
+      setForm((f) => ({ ...f, categoryId: created.id }));
+      setNewCategoryOpen(false);
+      setNewCategoryName('');
+      void queryClient.invalidateQueries({ queryKey: ['categories'] });
+    },
+    onError: (err) => {
+      toast({
+        title: 'Could not create category',
+        description: err instanceof ApiError ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const suppliersQuery = useQuery({
+    queryKey: ['suppliers', 'all'],
+    queryFn: () => api.suppliers.list({ size: 200 }),
+  });
+  const suppliers = useMemo(() => asList(suppliersQuery.data), [suppliersQuery.data]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -102,12 +148,18 @@ export default function ItemsPage() {
       sku: item.sku,
       name: item.name,
       description: item.description ?? '',
+      categoryId: item.categoryId ?? null,
+      supplierId: item.supplierId ?? null,
       retailPrice: item.retailPrice,
       costPrice: item.costPrice,
       wholesalePrice: item.wholesalePrice,
       unitOfMeasure: item.unitOfMeasure || 'EA',
       reorderLevel: item.reorderLevel,
       trackInventory: item.trackInventory,
+      hasSerialTracking: item.hasSerialTracking,
+      oldStock: item.oldStock,
+      warrantyMonths: item.warrantyMonths,
+      warrantyLabel: item.warrantyLabel ?? '',
       active: item.active,
     });
     setBarcode(
@@ -273,6 +325,101 @@ export default function ItemsPage() {
                 onChange={(e) => setForm((f) => ({ ...f, reorderLevel: e.target.value }))}
               />
             </div>
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <div className="flex gap-2">
+                <Select
+                  value={form.categoryId ?? NONE}
+                  onValueChange={(v) =>
+                    setForm((f) => ({ ...f, categoryId: v === NONE ? null : v }))
+                  }
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="No category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>No category</SelectItem>
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setNewCategoryOpen(true)}
+                  aria-label="New category"
+                >
+                  +
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Supplier</Label>
+              <Select
+                value={form.supplierId ?? NONE}
+                onValueChange={(v) => setForm((f) => ({ ...f, supplierId: v === NONE ? null : v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="No supplier" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>No supplier</SelectItem>
+                  {suppliers.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="warrantyMonths">Warranty (months)</Label>
+              <Input
+                id="warrantyMonths"
+                type="number"
+                min="0"
+                value={form.warrantyMonths ?? 0}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, warrantyMonths: Number(e.target.value) || 0 }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="warrantyLabel">Warranty Label</Label>
+              <Input
+                id="warrantyLabel"
+                placeholder="e.g. 6 Months Seller Warranty"
+                value={form.warrantyLabel ?? ''}
+                onChange={(e) => setForm((f) => ({ ...f, warrantyLabel: e.target.value }))}
+              />
+            </div>
+            <div className="flex items-center gap-2 sm:col-span-2">
+              <input
+                type="checkbox"
+                id="hasSerialTracking"
+                checked={form.hasSerialTracking ?? false}
+                onChange={(e) => setForm((f) => ({ ...f, hasSerialTracking: e.target.checked }))}
+                className="rounded border-gray-300"
+              />
+              <Label htmlFor="hasSerialTracking" className="cursor-pointer">
+                Track individual serial numbers / IMEIs for this item
+              </Label>
+            </div>
+            <div className="flex items-center gap-2 sm:col-span-2">
+              <input
+                type="checkbox"
+                id="oldStock"
+                checked={form.oldStock ?? false}
+                onChange={(e) => setForm((f) => ({ ...f, oldStock: e.target.checked }))}
+                className="rounded border-gray-300"
+              />
+              <Label htmlFor="oldStock" className="cursor-pointer">
+                Mark as old / used stock
+              </Label>
+            </div>
             <DialogFooter className="sm:col-span-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                 Cancel
@@ -282,6 +429,34 @@ export default function ItemsPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={newCategoryOpen} onOpenChange={setNewCategoryOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New category</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="newCategoryName">Category name</Label>
+            <Input
+              id="newCategoryName"
+              autoFocus
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setNewCategoryOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={createCategoryMutation.isPending || !newCategoryName.trim()}
+              onClick={() => createCategoryMutation.mutate(newCategoryName.trim())}
+            >
+              {createCategoryMutation.isPending ? 'Creating…' : 'Create'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

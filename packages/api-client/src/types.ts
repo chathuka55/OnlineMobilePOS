@@ -78,6 +78,103 @@ export interface Barcode {
   primaryBarcode: boolean;
 }
 
+export interface Category {
+  id: UUID;
+  name: string;
+  parentId?: UUID | null;
+  displayOrder: number;
+  active: boolean;
+}
+
+export interface CategoryRequest {
+  name: string;
+  parentId?: UUID | null;
+  displayOrder?: number;
+  active?: boolean;
+}
+
+export interface Supplier {
+  id: UUID;
+  code?: string | null;
+  name: string;
+  contactPerson?: string | null;
+  phonePrimary?: string | null;
+  phoneSecondary?: string | null;
+  email?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  taxIdentifier?: string | null;
+  paymentTermsDays: number;
+  totalPurchased: number | string;
+  outstandingPayable: number | string;
+  notes?: string | null;
+  active: boolean;
+}
+
+export interface SupplierRequest {
+  code?: string;
+  name: string;
+  contactPerson?: string;
+  phonePrimary?: string;
+  phoneSecondary?: string;
+  email?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  taxIdentifier?: string;
+  paymentTermsDays?: number;
+  notes?: string;
+  active?: boolean;
+}
+
+export interface GrnLineRequest {
+  itemId: UUID;
+  quantity: number | string;
+  unitCost: number | string;
+  retailPriceAtReceipt?: number | string;
+  warrantyMonths?: number;
+  serialNumbers?: string[];
+}
+
+export interface GrnCreateRequest {
+  outletId?: UUID;
+  supplierId?: UUID;
+  supplierInvoiceNo?: string;
+  notes?: string;
+  receivedAt?: string;
+  lines: GrnLineRequest[];
+}
+
+export interface GrnLine {
+  id: UUID;
+  itemId: UUID;
+  lineNumber: number;
+  quantity: number | string;
+  unitCost: number | string;
+  lineTotal: number | string;
+  retailPriceAtReceipt: number | string;
+  warrantyMonths: number;
+}
+
+export type GrnStatus = 'DRAFT' | 'POSTED' | 'CANCELLED';
+
+export interface Grn {
+  id: UUID;
+  outletId: UUID;
+  grnNumber: string;
+  supplierId?: UUID | null;
+  supplierInvoiceNo?: string | null;
+  status: GrnStatus;
+  receivedAt: string;
+  subtotal: number | string;
+  taxAmount: number | string;
+  total: number | string;
+  notes?: string | null;
+  postedAt?: string | null;
+  lines: GrnLine[];
+}
+
 export interface Item {
   id: UUID;
   sku: string;
@@ -174,7 +271,13 @@ export interface CustomerRequest {
 export type CartStatus = 'OPEN' | 'HELD' | 'CHECKED_OUT' | 'ABANDONED';
 export type PriceMode = 'RETAIL' | 'WHOLESALE';
 export type DiscountType = 'NONE' | 'PERCENT' | 'AMOUNT';
-export type BillStatus = 'PAID' | 'PARTIAL' | 'UNPAID' | 'VOID';
+export type BillStatus =
+  | 'COMPLETED'
+  | 'PARTIALLY_PAID'
+  | 'UNPAID'
+  | 'VOIDED'
+  | 'REFUNDED'
+  | 'PARTIALLY_REFUNDED';
 export type BillChannel = 'POS' | 'COUNTER' | 'ONLINE' | 'WHOLESALE';
 export type PaymentMethod = 'CASH' | 'CARD' | 'BANK_TRANSFER' | 'CHEQUE' | 'CREDIT' | 'OTHER';
 
@@ -292,6 +395,53 @@ export interface Bill {
   sourceCartId?: UUID | null;
   lines: BillLine[];
   payments: Payment[];
+}
+
+export type RefundScope = 'FULL' | 'PARTIAL';
+export type RefundSettlement = 'CASH' | 'CARD_REVERSAL' | 'BANK_TRANSFER' | 'CREDIT_NOTE' | 'CHEQUE';
+
+export interface RefundLineRequest {
+  billLineId: UUID;
+  quantity: number | string;
+  serialIds?: UUID[];
+  conditionNote?: string;
+}
+
+export interface CreateRefundRequest {
+  billId: UUID;
+  refundType?: RefundScope;
+  settlement?: RefundSettlement;
+  restock?: boolean;
+  reason?: string;
+  note?: string;
+  idempotencyKey?: string;
+  lines?: RefundLineRequest[];
+}
+
+export interface RefundLine {
+  id: UUID;
+  billLineId: UUID;
+  itemId: UUID;
+  itemName: string;
+  quantity: number | string;
+  unitPrice: number | string;
+  lineTotal: number | string;
+  restocked: boolean;
+}
+
+export interface Refund {
+  id: UUID;
+  refundNumber: string;
+  sourceId: UUID;
+  sourceNumber: string;
+  refundScope: RefundScope;
+  settlement: RefundSettlement;
+  refundAmount: number | string;
+  restock: boolean;
+  reason?: string | null;
+  creditNoteId?: UUID | null;
+  refundedAt: string;
+  lines: RefundLine[];
 }
 
 export interface BillSummary {

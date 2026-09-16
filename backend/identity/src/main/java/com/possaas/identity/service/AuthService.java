@@ -5,6 +5,7 @@ import com.possaas.common.error.ErrorCode;
 import com.possaas.common.tenant.TenantContext;
 import com.possaas.identity.api.dto.AuthDtos.AcceptInviteRequest;
 import com.possaas.identity.api.dto.AuthDtos.AccessTokenResponse;
+import com.possaas.identity.api.dto.AuthDtos.BootstrapPlatformAdminRequest;
 import com.possaas.identity.api.dto.AuthDtos.ChangePasswordRequest;
 import com.possaas.identity.api.dto.AuthDtos.ForgotPasswordRequest;
 import com.possaas.identity.api.dto.AuthDtos.LoginRequest;
@@ -361,6 +362,36 @@ public class AuthService {
 
         JwtService.IssuedAccessToken access = jwtService.issueAccessToken(steppedUp);
         return new AccessTokenResponse(access.token(), access.expiresInSeconds(), access.expiresAt());
+    }
+
+    /**
+     * Creates the first (and only) platform operator account, for whoever runs this
+     * deployment to administer tenants - suspend/reinstate a shop, view platform-wide
+     * metrics. Guarded by "no platform admin exists yet" rather than a permission
+     * check, since bootstrapping is exactly the problem: there is nobody with
+     * platform.tenant.manage to invite the first one.
+     */
+    @Transactional
+    public TokenResponse bootstrapPlatformAdmin(BootstrapPlatformAdminRequest request) {
+        if (userRepository.existsByPlatformAdminTrue()) {
+            throw ApiException.conflict("A platform administrator already exists");
+        }
+        String email = normalizeEmail(request.email());
+        if (userRepository.existsByEmailIgnoreCaseAndDeletedAtIsNull(email)) {
+            throw ApiException.conflict("An account with this email already exists");
+        }
+
+        Role adminRole = roleRepository.findByCodeAndTenantIdIsNull(SystemRole.PLATFORM_ADMIN)
+                .orElseThrow(() -> new ApiException(ErrorCode.INTERNAL_ERROR,
+                        "System role PLATFORM_ADMIN is not seeded"));
+
+        User user = User.platformOperator(email, request.fullName().trim());
+        user.activateWithPassword(passwordEncoder.encode(request.password()));
+        user.getRoles().add(adminRole);
+        user = userRepository.save(user);
+
+        return issueSession(user, null, null,
+                new RefreshTokenService.DeviceInfo(null, "Platform admin bootstrap", null));
     }
 
     @Transactional

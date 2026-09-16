@@ -26,6 +26,13 @@ public final class AuthDtos {
     ) {
     }
 
+    public record BootstrapPlatformAdminRequest(
+            @NotBlank @Email @Size(max = 255) String email,
+            @NotBlank @Size(max = 160) String fullName,
+            @NotBlank @Size(min = 8, max = 128) String password
+    ) {
+    }
+
     public record LoginRequest(
             @NotBlank String emailOrUsername,
             @NotBlank String password,

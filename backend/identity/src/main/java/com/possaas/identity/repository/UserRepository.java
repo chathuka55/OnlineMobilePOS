@@ -26,6 +26,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     boolean existsByEmailIgnoreCaseAndDeletedAtIsNull(String email);
 
+    boolean existsByPlatformAdminTrue();
+
     long countByStatusAndDeletedAtIsNull(UserStatus status);
 
     @Query("""

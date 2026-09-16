@@ -1,6 +1,7 @@
 package com.possaas.identity.api;
 
 import com.possaas.identity.api.dto.AuthDtos.AcceptInviteRequest;
+import com.possaas.identity.api.dto.AuthDtos.BootstrapPlatformAdminRequest;
 import com.possaas.identity.api.dto.AuthDtos.ForgotPasswordRequest;
 import com.possaas.identity.api.dto.AuthDtos.LoginRequest;
 import com.possaas.identity.api.dto.AuthDtos.LogoutRequest;
@@ -35,6 +36,17 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public TokenResponse signup(@Valid @RequestBody SignupRequest request) {
         return authService.signup(request);
+    }
+
+    /**
+     * Creates the platform operator account. Only works while none exists yet
+     * (enforced in AuthService, not here) - after that it always 409s, so this
+     * stays safe to leave reachable rather than needing to be torn out post-launch.
+     */
+    @PostMapping("/bootstrap-platform-admin")
+    @ResponseStatus(HttpStatus.CREATED)
+    public TokenResponse bootstrapPlatformAdmin(@Valid @RequestBody BootstrapPlatformAdminRequest request) {
+        return authService.bootstrapPlatformAdmin(request);
     }
 
     @PostMapping("/login")

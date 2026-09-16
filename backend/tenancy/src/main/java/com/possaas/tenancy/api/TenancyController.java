@@ -62,7 +62,7 @@ public class TenancyController {
     }
 
     @PutMapping("/tenant")
-    @PreAuthorize("hasAuthority('settings:write')")
+    @PreAuthorize("hasAuthority('settings.manage')")
     public TenantResponse updateTenant(@Valid @RequestBody UpdateTenantRequest request) {
         Tenant tenant = tenantService.currentTenant();
         tenant.setBusinessName(request.businessName().trim());
@@ -95,7 +95,7 @@ public class TenancyController {
     }
 
     @PutMapping("/outlets/{id}")
-    @PreAuthorize("hasAuthority('settings:write')")
+    @PreAuthorize("hasAuthority('settings.manage')")
     public OutletResponse updateOutlet(@PathVariable UUID id,
                                        @Valid @RequestBody UpdateOutletRequest request) {
         Outlet outlet = tenantService.resolveOutlet(id);
@@ -134,13 +134,13 @@ public class TenancyController {
     }
 
     @GetMapping("/settings")
-    @PreAuthorize("hasAuthority('settings:read')")
+    @PreAuthorize("hasAuthority('settings.view')")
     public Map<String, String> settings() {
         return settingsService.effectiveSettings();
     }
 
     @PutMapping("/settings")
-    @PreAuthorize("hasAuthority('settings:write')")
+    @PreAuthorize("hasAuthority('settings.manage')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void updateSettings(@RequestBody Map<String, String> values) {
         Map<String, String> sanitized = new LinkedHashMap<>();

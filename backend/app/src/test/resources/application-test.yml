@@ -1,0 +1,40 @@
+spring:
+  datasource:
+    hikari:
+      # Required for transaction-scoped tenant binding; see TenantAwareDataSource.
+      auto-commit: false
+      maximum-pool-size: 5
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  cache:
+    # Tests assert on database state, so caching would mask reads.
+    type: none
+
+  flyway:
+    enabled: true
+    clean-disabled: false
+
+pos:
+  security:
+    jwt:
+      secret: dGVzdC1vbmx5LXNlY3JldC1rZXktZm9yLWludGVncmF0aW9uLXRlc3RzLTEyMzQ1Ng==
+      issuer: https://api.possaas.test
+  seed:
+    demo-data: false
+  tenancy:
+    rls-enabled: true
+
+logging:
+  level:
+    root: WARN
+    com.possaas: INFO
+    org.testcontainers: WARN

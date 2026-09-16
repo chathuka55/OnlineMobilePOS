@@ -1,0 +1,59 @@
+# ---- Java / Gradle ----
+build/
+!gradle/wrapper/gradle-wrapper.jar
+.gradle/
+out/
+bin/
+*.class
+*.jar
+!gradle-wrapper.jar
+*.war
+*.log
+hs_err_pid*.log
+replay_pid*.log
+
+# ---- Node ----
+node_modules/
+.pnpm-store/
+dist/
+.next/
+.turbo/
+*.tsbuildinfo
+coverage/
+
+# ---- Tauri / Rust ----
+apps/pos-terminal/src-tauri/target/
+apps/pos-terminal/src-tauri/gen/
+
+# ---- Env & secrets ----
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+!infra/nginx/**/*.key.example
+secrets/
+
+# ---- IDE ----
+.idea/
+*.iml
+.vscode/*
+!.vscode/settings.json.example
+!.vscode/extensions.json
+.classpath
+.project
+.settings/
+
+# ---- Claude Code ----
+.claude/
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Runtime artifacts ----
+/data/
+/backups/
+/logs/
+generated-reports/

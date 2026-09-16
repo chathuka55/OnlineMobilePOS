@@ -1,0 +1,7 @@
+@import '@possaas/ui/styles.css';
+
+html,
+body,
+#root {
+  height: 100%;
+}

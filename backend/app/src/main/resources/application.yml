@@ -1,0 +1,184 @@
+spring:
+  application:
+    name: pos-saas-api
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:possaas}
+    # Distinct from DB_APP_USER: that name is also used as the Flyway
+    # `app_db_user` placeholder to CREATE/GRANT the role itself in SQL, which
+    # must stay the bare role name. When connecting through a pooler that
+    # multiplexes tenants by username (e.g. Supabase's Supavisor, which
+    # expects "<role>.<project-ref>"), the actual JDBC identity differs from
+    # the underlying role name, hence the separate variable.
+    username: ${DB_APP_JDBC_USER:${DB_APP_USER:possaas_app}}
+    password: ${DB_APP_PASSWORD:possaas_app_pw}
+    hikari:
+      pool-name: possaas-pool
+      maximum-pool-size: ${DB_POOL_MAX:20}
+      minimum-idle: ${DB_POOL_MIN:5}
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      # Row-Level Security relies on SET LOCAL, which only survives inside a
+      # transaction, so connections must never leak tenant state between checkouts.
+      auto-commit: false
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Flyway owns the schema. Entity/schema agreement is asserted by
+      # SchemaValidationTest rather than by failing production startup.
+      ddl-auto: none
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+        query:
+          in_clause_parameter_padding: true
+        format_sql: false
+    show-sql: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    # Migrations create roles and RLS policies, so they run as the schema owner.
+    # The API itself connects as ${app_db_user} below, which does NOT own the
+    # tables and therefore cannot bypass Row-Level Security.
+    #
+    # Setting `url` explicitly makes Spring Boot build Flyway its own DataSource
+    # rather than reusing the tenant-scoped one, which would restrict migrations
+    # to whichever tenant happened to be bound.
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:possaas}
+    user: ${DB_OWNER_USER:possaas}
+    password: ${DB_OWNER_PASSWORD:possaas}
+    placeholders:
+      db_name: ${DB_NAME:possaas}
+      app_db_user: ${DB_APP_USER:possaas_app}
+      app_db_password: ${DB_APP_PASSWORD:possaas_app_pw}
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 3s
+      lettuce:
+        pool:
+          enabled: true
+          max-active: 16
+          max-idle: 8
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 10m
+      cache-null-values: false
+      key-prefix: 'possaas:cache:'
+      use-key-prefix: true
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 25MB
+
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+      fail-on-empty-beans: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+  threads:
+    virtual:
+      enabled: true
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: never
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/plain
+  forward-headers-strategy: framework
+
+management:
+  endpoints:
+    web:
+      base-path: /internal/actuator
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+
+pos:
+  security:
+    jwt:
+      # Base64-encoded HMAC-SHA256 key. MUST be overridden outside dev.
+      secret: ${JWT_SECRET:ZGV2LW9ubHktc2VjcmV0LWRvLW5vdC11c2UtaW4tcHJvZHVjdGlvbi0xMjM0NTY3ODkw}
+      issuer: ${JWT_ISSUER:https://api.possaas.local}
+      access-token-ttl: ${JWT_ACCESS_TTL:PT15M}
+      refresh-token-ttl: ${JWT_REFRESH_TTL:P30D}
+      step-up-ttl: PT10M
+    cors:
+      allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:5173,tauri://localhost}
+    rate-limit:
+      login-attempts: 10
+      login-window: PT15M
+      api-requests-per-minute: 600
+
+  storage:
+    endpoint: ${S3_ENDPOINT:http://localhost:9000}
+    region: ${S3_REGION:us-east-1}
+    bucket: ${S3_BUCKET:possaas}
+    access-key: ${S3_ACCESS_KEY:possaas}
+    secret-key: ${S3_SECRET_KEY:possaas123}
+    path-style-access: ${S3_PATH_STYLE:true}
+    presign-ttl: PT15M
+
+  subscription:
+    trial-days: 14
+    grace-period-days: 7
+    default-currency: LKR
+    gateway: ${PAYMENT_GATEWAY:none}
+    stripe:
+      secret-key: ${STRIPE_SECRET_KEY:}
+      webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+    payhere:
+      merchant-id: ${PAYHERE_MERCHANT_ID:}
+      merchant-secret: ${PAYHERE_MERCHANT_SECRET:}
+      sandbox: ${PAYHERE_SANDBOX:true}
+
+  tenancy:
+    # Only ever false in tests that need to assert across tenants.
+    rls-enabled: true
+
+logging:
+  level:
+    root: INFO
+    com.possaas: ${LOG_LEVEL:INFO}
+    org.hibernate.SQL: WARN

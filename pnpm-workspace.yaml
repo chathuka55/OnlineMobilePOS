@@ -1,0 +1,16 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# lucide-react declares no peerDependency on react, so without this pnpm
+# installs one shared copy instead of forking per consumer's react version
+# (this workspace mixes React 18 in packages/ui and apps/pos-terminal with
+# React 19 in apps/admin-dashboard). This keeps the runtime install aligned
+# with each consumer's react. It does NOT resolve the @types/react split
+# reflected in a shared icon component's inferred JSX return type — that's
+# handled by the IconComponent cast in packages/ui/src/lib/icon.ts.
+packageExtensions:
+  lucide-react:
+    peerDependencies:
+      react: '*'
+      '@types/react': '*'

@@ -1,0 +1,15 @@
+{
+  "extends": "@possaas/tsconfig/nextjs.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@possaas/ui": ["../../packages/ui/src/index.ts"],
+      "@possaas/ui/*": ["../../packages/ui/src/*"],
+      "@possaas/api-client": ["../../packages/api-client/src/index.ts"]
+    },
+    "plugins": [{ "name": "next" }]
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}

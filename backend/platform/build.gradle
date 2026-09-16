@@ -1,0 +1,7 @@
+dependencies {
+    api project(':backend:common')
+    api project(':backend:tenancy')
+    api project(':backend:identity')
+    api project(':backend:subscription')
+    api project(':backend:sales')
+}

@@ -1,0 +1,41 @@
+groups:
+  - name: possaas
+    rules:
+      - alert: ApiDown
+        expr: up{job="possaas-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'POS SaaS API is down'
+          description: 'Prometheus cannot scrape the API for more than 2 minutes.'
+
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m]))
+            /
+          sum(rate(http_server_requests_seconds_count[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'API 5xx rate above 5%'
+
+      - alert: HighLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_server_requests_seconds_bucket[5m])) by (le)
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'API p95 latency above 2s'
+
+      - alert: PostgresDown
+        expr: up{job="possaas-api"} == 1 and jdbc_connections_active == 0
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'No active JDBC connections — database may be unreachable'

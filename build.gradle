@@ -1,0 +1,72 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version "${springBootVersion}" apply false
+    id 'io.spring.dependency-management' version "${springDependencyManagementVersion}" apply false
+}
+
+allprojects {
+    group = 'com.possaas'
+    version = '1.0.0-SNAPSHOT'
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'io.spring.dependency-management'
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+    }
+
+    dependencyManagement {
+        imports {
+            mavenBom "org.springframework.boot:spring-boot-dependencies:${springBootVersion}"
+            mavenBom "org.testcontainers:testcontainers-bom:${testcontainersVersion}"
+        }
+    }
+
+    dependencies {
+        compileOnly "org.projectlombok:lombok"
+        annotationProcessor "org.projectlombok:lombok"
+        annotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
+        // Lombok must run before MapStruct so generated getters are visible to it.
+        annotationProcessor "org.projectlombok:lombok-mapstruct-binding:0.2.0"
+        implementation "org.mapstruct:mapstruct:${mapstructVersion}"
+
+        testCompileOnly "org.projectlombok:lombok"
+        testAnnotationProcessor "org.projectlombok:lombok"
+        testImplementation "org.springframework.boot:spring-boot-starter-test"
+        testImplementation "org.assertj:assertj-core"
+
+        // Required at runtime by Lettuce's connection pool (spring.data.redis.lettuce.pool.enabled:
+        // true in application.yml) wherever spring-boot-starter-data-redis is pulled in; Spring Boot's
+        // starter treats it as optional so it isn't included transitively.
+        implementation "org.apache.commons:commons-pool2"
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.compilerArgs << '-parameters' << '-Xlint:deprecation'
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+        testLogging {
+            events 'passed', 'skipped', 'failed'
+            exceptionFormat = 'full'
+        }
+    }
+}
+
+// Domain modules all need the same persistence/web surface. Declaring it once here
+// keeps the 13 per-module build files down to just their internal dependencies.
+configure(subprojects.findAll { it.name != 'app' }) {
+    dependencies {
+        api "org.springframework.boot:spring-boot-starter-web"
+        api "org.springframework.boot:spring-boot-starter-validation"
+        api "org.springframework.boot:spring-boot-starter-data-jpa"
+        api "org.springframework.boot:spring-boot-starter-security"
+        api "com.fasterxml.jackson.datatype:jackson-datatype-jsr310"
+    }
+}

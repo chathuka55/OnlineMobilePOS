@@ -1,0 +1,42 @@
+{
+  "name": "pos-saas",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"./apps/**\" dev",
+    "dev:dashboard": "pnpm --filter @possaas/admin-dashboard dev",
+    "dev:pos": "pnpm --filter @possaas/pos-terminal dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,yml}\"",
+    "infra:up": "docker compose --env-file .env -f infra/docker/compose.dev.yml up -d postgres redis minio minio-init",
+    "infra:down": "docker compose -f infra/docker/compose.dev.yml down",
+    "infra:reset": "docker compose -f infra/docker/compose.dev.yml down -v && pnpm infra:up",
+    "infra:obs": "docker compose -f infra/docker/compose.dev.yml -f infra/docker/compose.observability.yml up -d prometheus grafana",
+    "infra:prod": "docker compose --env-file .env -f infra/docker/compose.prod.yml up -d",
+    "api:dev": "gradlew :backend:app:bootRun --args=\"--spring.profiles.active=dev\"",
+    "api:test": "gradlew test",
+    "api:openapi": "node scripts/fetch-openapi.mjs"
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "prettier-plugin-tailwindcss": "^0.6.9",
+    "typescript": "^5.7.2"
+  },
+  "prettier": {
+    "semi": true,
+    "singleQuote": true,
+    "trailingComma": "all",
+    "printWidth": 100,
+    "tabWidth": 2,
+    "plugins": [
+      "prettier-plugin-tailwindcss"
+    ]
+  }
+}

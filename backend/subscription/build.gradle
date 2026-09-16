@@ -1,0 +1,6 @@
+dependencies {
+    api project(':backend:common')
+    api project(':backend:tenancy')
+
+    api "org.springframework.boot:spring-boot-starter-aop"
+}

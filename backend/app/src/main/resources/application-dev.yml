@@ -1,0 +1,26 @@
+spring:
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  devtools:
+    restart:
+      enabled: true
+
+logging:
+  level:
+    com.possaas: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+    org.springframework.security: DEBUG
+
+pos:
+  security:
+    cors:
+      allowed-origins: '*'
+  seed:
+    # Creates a demo tenant with sample items/customers on first boot so the POS
+    # terminal has something to sell straight after `docker compose up`.
+    demo-data: true

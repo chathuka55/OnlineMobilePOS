@@ -1,0 +1,15 @@
+dependencies {
+    api project(':backend:common')
+    api project(':backend:tenancy')
+    api project(':backend:subscription')
+
+    api "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+
+    // Argon2id support for Spring Security's Argon2PasswordEncoder.
+    api "org.bouncycastle:bcprov-jdk18on:1.79"
+
+    // Refresh-token hot path cache.
+    api "org.springframework.boot:spring-boot-starter-data-redis"
+}

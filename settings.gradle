@@ -1,0 +1,30 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
+dependencyResolutionManagement {
+    repositories {
+        mavenCentral()
+        // JasperReports pulls a few artifacts that are only published here.
+        maven { url = 'https://jaspersoft.jfrog.io/artifactory/jaspersoft-repo/' }
+    }
+}
+
+rootProject.name = 'pos-saas'
+
+include 'backend:common'
+include 'backend:tenancy'
+include 'backend:identity'
+include 'backend:subscription'
+include 'backend:crm'
+include 'backend:catalog'
+include 'backend:sales'
+include 'backend:repairs'
+include 'backend:wholesale'
+include 'backend:quotations'
+include 'backend:reporting'
+include 'backend:platform'
+include 'backend:app'

@@ -1,0 +1,11 @@
+{
+  "extends": "@possaas/tsconfig/react-library.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src", "styles"],
+  "exclude": ["node_modules", "dist"]
+}

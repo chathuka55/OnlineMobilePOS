@@ -1,0 +1,14 @@
+{
+  "extends": "@possaas/tsconfig/react-library.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@possaas/ui": ["../../packages/ui/src/index.ts"],
+      "@possaas/api-client": ["../../packages/api-client/src/index.ts"]
+    },
+    "noEmit": true,
+    "types": ["vite/client"]
+  },
+  "include": ["src"]
+}

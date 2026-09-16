@@ -1,0 +1,51 @@
+apply plugin: 'org.springframework.boot'
+
+dependencies {
+    implementation project(':backend:common')
+    implementation project(':backend:tenancy')
+    implementation project(':backend:identity')
+    implementation project(':backend:subscription')
+    implementation project(':backend:crm')
+    implementation project(':backend:catalog')
+    implementation project(':backend:sales')
+    implementation project(':backend:repairs')
+    implementation project(':backend:wholesale')
+    implementation project(':backend:quotations')
+    implementation project(':backend:reporting')
+    implementation project(':backend:platform')
+
+    implementation "org.springframework.boot:spring-boot-starter-web"
+    implementation "org.springframework.boot:spring-boot-starter-actuator"
+    implementation "org.springframework.boot:spring-boot-starter-data-redis"
+    implementation "org.springframework.boot:spring-boot-starter-cache"
+    implementation "org.flywaydb:flyway-core"
+    implementation "org.flywaydb:flyway-database-postgresql"
+    implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocVersion}"
+    implementation "io.micrometer:micrometer-registry-prometheus"
+    implementation "net.logstash.logback:logstash-logback-encoder:8.0"
+    implementation "software.amazon.awssdk:s3:${awsSdkVersion}"
+
+    runtimeOnly "org.postgresql:postgresql"
+
+    developmentOnly "org.springframework.boot:spring-boot-devtools"
+
+    testImplementation "org.springframework.security:spring-security-test"
+    testImplementation "org.testcontainers:junit-jupiter"
+    testImplementation "org.testcontainers:postgresql"
+    testImplementation "com.redis:testcontainers-redis:2.2.2"
+    testImplementation "com.tngtech.archunit:archunit-junit5:${archunitVersion}"
+}
+
+springBoot {
+    buildInfo()
+    mainClass = 'com.possaas.PosSaasApplication'
+}
+
+tasks.named('bootJar') {
+    archiveFileName = 'pos-saas-api.jar'
+}
+
+// The domain modules are libraries, so their (empty) jars should not be executable.
+tasks.named('jar') {
+    enabled = false
+}

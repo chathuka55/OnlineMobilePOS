@@ -1,0 +1,16 @@
+dependencies {
+    api project(':backend:common')
+    api project(':backend:tenancy')
+    api project(':backend:catalog')
+    api project(':backend:crm')
+    api project(':backend:sales')
+    api project(':backend:repairs')
+    api project(':backend:wholesale')
+
+    api("net.sf.jasperreports:jasperreports:${jasperReportsVersion}") {
+        // Pulled in transitively but conflicts with the Spring-managed stack.
+        exclude group: 'com.lowagie', module: 'itext'
+        exclude group: 'org.apache.xmlgraphics', module: 'batik-bridge'
+    }
+    api "com.lowagie:itext:2.1.7.js10"
+}

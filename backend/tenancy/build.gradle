@@ -1,0 +1,5 @@
+dependencies {
+    api project(':backend:common')
+    api "org.springframework.boot:spring-boot-starter-data-redis"
+    api "com.zaxxer:HikariCP"
+}

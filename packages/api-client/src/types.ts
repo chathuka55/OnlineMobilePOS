@@ -1,0 +1,337 @@
+export type UUID = string;
+
+export interface User {
+  id: UUID;
+  email: string;
+  fullName: string;
+  phone?: string | null;
+  tenantId: UUID;
+  tenantSlug: string;
+  roles: string[];
+  permissions: string[];
+  platformAdmin: boolean;
+}
+
+export interface TokenResponse {
+  accessToken: string;
+  refreshToken: string;
+  tokenType: string;
+  expiresIn: number;
+  expiresAt: string;
+  user: User;
+}
+
+export interface LoginRequest {
+  emailOrUsername: string;
+  password: string;
+  tenantSlug?: string;
+  deviceId?: string;
+  deviceLabel?: string;
+}
+
+export interface SignupRequest {
+  businessName: string;
+  contactEmail: string;
+  password: string;
+  fullName: string;
+  slug?: string;
+  phone?: string;
+}
+
+export interface RefreshRequest {
+  refreshToken: string;
+}
+
+export interface Barcode {
+  id: UUID;
+  barcode: string;
+  primaryBarcode: boolean;
+}
+
+export interface Item {
+  id: UUID;
+  sku: string;
+  name: string;
+  description?: string | null;
+  categoryId?: UUID | null;
+  supplierId?: UUID | null;
+  taxRateId?: UUID | null;
+  unitOfMeasure: string;
+  costPrice: number | string;
+  retailPrice: number | string;
+  wholesalePrice: number | string;
+  minSellingPrice: number | string;
+  quantityOnHand: number | string;
+  quantityReserved: number | string;
+  reorderLevel: number | string;
+  reorderQuantity: number | string;
+  trackInventory: boolean;
+  hasSerialTracking: boolean;
+  allowNegativeStock: boolean;
+  oldStock: boolean;
+  warrantyMonths: number;
+  warrantyLabel?: string | null;
+  active: boolean;
+  barcodes: Barcode[];
+}
+
+export interface ItemRequest {
+  sku: string;
+  name: string;
+  description?: string;
+  categoryId?: UUID | null;
+  supplierId?: UUID | null;
+  taxRateId?: UUID | null;
+  unitOfMeasure?: string;
+  costPrice?: number | string;
+  retailPrice?: number | string;
+  wholesalePrice?: number | string;
+  minSellingPrice?: number | string;
+  reorderLevel?: number | string;
+  reorderQuantity?: number | string;
+  trackInventory?: boolean;
+  hasSerialTracking?: boolean;
+  allowNegativeStock?: boolean;
+  oldStock?: boolean;
+  warrantyMonths?: number;
+  warrantyLabel?: string;
+  active?: boolean;
+  barcodes?: Array<{ barcode: string; primaryBarcode?: boolean }>;
+}
+
+export type CustomerType = 'RETAIL' | 'WHOLESALE' | 'DEALER' | 'WALK_IN';
+
+export interface Customer {
+  id: UUID;
+  code?: string | null;
+  displayName: string;
+  customerType: CustomerType;
+  phonePrimary?: string | null;
+  phoneSecondary?: string | null;
+  email?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  taxIdentifier?: string | null;
+  creditLimit: number | string;
+  outstandingAmount: number | string;
+  lifetimeSales: number | string;
+  loyaltyPoints: number;
+  defaultTaxRateId?: UUID | null;
+  notes?: string | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CustomerRequest {
+  code?: string;
+  displayName: string;
+  customerType: CustomerType;
+  phonePrimary?: string;
+  phoneSecondary?: string;
+  email?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  taxIdentifier?: string;
+  creditLimit?: number | string;
+  defaultTaxRateId?: UUID | null;
+  notes?: string;
+  active?: boolean;
+}
+
+export type CartStatus = 'OPEN' | 'HELD' | 'CHECKED_OUT' | 'ABANDONED';
+export type PriceMode = 'RETAIL' | 'WHOLESALE';
+export type DiscountType = 'NONE' | 'PERCENT' | 'AMOUNT';
+export type BillStatus = 'PAID' | 'PARTIAL' | 'UNPAID' | 'VOID';
+export type BillChannel = 'POS' | 'COUNTER' | 'ONLINE' | 'WHOLESALE';
+export type PaymentMethod = 'CASH' | 'CARD' | 'BANK_TRANSFER' | 'CHEQUE' | 'CREDIT' | 'OTHER';
+
+export interface CartLine {
+  id: UUID;
+  lineNumber: number;
+  itemId: UUID;
+  description?: string | null;
+  quantity: number | string;
+  unitPrice: number | string;
+  discountType?: DiscountType | null;
+  discountInput?: number | string | null;
+  taxRateId?: UUID | null;
+  warrantyLabel?: string | null;
+  serialIds?: UUID[];
+}
+
+export interface Cart {
+  id: UUID;
+  status: CartStatus;
+  outletId: UUID;
+  customerId?: UUID | null;
+  customerName?: string | null;
+  priceMode: PriceMode;
+  label?: string | null;
+  note?: string | null;
+  heldAt?: string | null;
+  convertedBillId?: UUID | null;
+  lines: CartLine[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCartRequest {
+  customerId?: UUID;
+  customerName?: string;
+  priceMode?: PriceMode;
+  label?: string;
+  note?: string;
+}
+
+export interface CartLineRequest {
+  itemId: UUID;
+  quantity: number | string;
+  unitPrice?: number | string;
+  discountType?: DiscountType;
+  discountInput?: number | string;
+  taxRateId?: UUID;
+  warrantyLabel?: string;
+  description?: string;
+  serialIds?: UUID[];
+}
+
+export interface BillLine {
+  id: UUID;
+  lineNumber: number;
+  itemId: UUID;
+  itemSku: string;
+  itemName: string;
+  quantity: number | string;
+  unitPrice: number | string;
+  unitCost: number | string;
+  grossAmount: number | string;
+  discountType?: DiscountType | null;
+  discountInput?: number | string | null;
+  discountAmount: number | string;
+  netAmount: number | string;
+  taxRatePercent: number | string;
+  taxAmount: number | string;
+  taxInclusive: boolean;
+  lineTotal: number | string;
+  warrantyLabel?: string | null;
+  warrantyMonths: number;
+  quantityReturned: number | string;
+}
+
+export interface Payment {
+  id: UUID;
+  method: PaymentMethod;
+  amount: number | string;
+  tenderedAmount?: number | string | null;
+  changeAmount?: number | string | null;
+  reference?: string | null;
+  receivedAt: string;
+}
+
+export interface Bill {
+  id: UUID;
+  billNumber: string;
+  status: BillStatus;
+  channel: BillChannel;
+  priceMode: PriceMode;
+  outletId: UUID;
+  customerId?: UUID | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  currency: string;
+  subtotal: number | string;
+  lineDiscountTotal: number | string;
+  billDiscountType?: DiscountType | null;
+  billDiscountInput?: number | string | null;
+  billDiscountAmount: number | string;
+  taxTotal: number | string;
+  roundingAdjustment: number | string;
+  grandTotal: number | string;
+  creditApplied: number | string;
+  amountPaid: number | string;
+  balanceDue: number | string;
+  costOfGoods: number | string;
+  note?: string | null;
+  billedAt: string;
+  dueDate?: string | null;
+  voidedAt?: string | null;
+  voidReason?: string | null;
+  sourceCartId?: UUID | null;
+  lines: BillLine[];
+  payments: Payment[];
+}
+
+export interface BillSummary {
+  id: UUID;
+  billNumber: string;
+  status: BillStatus;
+  customerName?: string | null;
+  grandTotal: number | string;
+  amountPaid: number | string;
+  balanceDue: number | string;
+  billedAt: string;
+}
+
+export interface CheckoutRequest {
+  cartId?: UUID;
+  lines?: Array<{
+    itemId: UUID;
+    quantity: number | string;
+    unitPrice: number | string;
+    discountType?: DiscountType;
+    discountInput?: number | string;
+    taxRateId?: UUID;
+    warrantyLabel?: string;
+    serialIds?: UUID[];
+  }>;
+  payments?: Array<{
+    method: PaymentMethod;
+    amount: number | string;
+    tenderedAmount?: number | string;
+    reference?: string;
+    note?: string;
+    idempotencyKey?: string;
+  }>;
+  creditNoteApplications?: Array<{ creditNoteId: UUID; amount: number | string }>;
+  idempotencyKey?: string;
+  customerId?: UUID;
+  customerName?: string;
+  customerPhone?: string;
+  priceMode?: PriceMode;
+  channel?: BillChannel;
+  billDiscountType?: DiscountType;
+  billDiscountInput?: number | string;
+  note?: string;
+  deviceId?: string;
+  dueDate?: string;
+}
+
+export interface Page<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+}
+
+export interface ApiErrorBody {
+  message?: string;
+  error?: string;
+  code?: string;
+  details?: unknown;
+}
+
+export class ApiError extends Error {
+  status: number;
+  body?: ApiErrorBody;
+
+  constructor(status: number, message: string, body?: ApiErrorBody) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.body = body;
+  }
+}

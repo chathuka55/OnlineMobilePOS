@@ -1,0 +1,26 @@
+spring:
+  jpa:
+    show-sql: false
+  devtools:
+    restart:
+      enabled: false
+
+server:
+  tomcat:
+    max-threads: 200
+    accept-count: 100
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+
+logging:
+  level:
+    root: WARN
+    com.possaas: INFO
+
+pos:
+  seed:
+    demo-data: false

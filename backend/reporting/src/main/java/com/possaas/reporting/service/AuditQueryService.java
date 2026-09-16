@@ -3,11 +3,9 @@ package com.possaas.reporting.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.possaas.common.api.PageResponse;
+import com.possaas.common.audit.AuditSeverity;
 import com.possaas.common.tenant.TenantContext;
 import com.possaas.reporting.api.dto.ReportingDtos.AuditEventResponse;
-import com.possaas.reporting.domain.AuditEvent;
-import com.possaas.reporting.domain.AuditSeverity;
-import com.possaas.reporting.repository.AuditEventRepository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -22,64 +20,29 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * The read side of the audit trail (the write side, AuditService.record(), lives in
+ * common.audit so write-path modules like sales/repairs/catalog can call it without a
+ * circular dependency on reporting).
+ *
+ * <p>Built with JdbcTemplate rather than a JPA {@code @Query}: an equivalent
+ * "(:from IS NULL OR occurredAt >= :from)" JPQL pattern fails at the driver level with
+ * "could not determine data type of parameter" whenever from/to are actually null,
+ * because Postgres can't infer a type for a parameter whose only context is an IS NULL
+ * check. Only binding parameters for filters that are actually present avoids the
+ * ambiguity outright.
+ */
 @Service
-public class AuditService {
+public class AuditQueryService {
 
-    private final AuditEventRepository auditEventRepository;
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
 
-    public AuditService(AuditEventRepository auditEventRepository,
-                        JdbcTemplate jdbcTemplate,
-                        ObjectMapper objectMapper) {
-        this.auditEventRepository = auditEventRepository;
+    public AuditQueryService(JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
         this.jdbcTemplate = jdbcTemplate;
         this.objectMapper = objectMapper;
     }
 
-    @Transactional
-    public AuditEvent record(String entityType,
-                             UUID entityId,
-                             String entityNumber,
-                             String action,
-                             AuditSeverity severity,
-                             String summary,
-                             Map<String, Object> changes,
-                             Map<String, Object> metadata) {
-        AuditEvent event = new AuditEvent();
-        TenantContext.current().ifPresent(scope -> {
-            event.setTenantId(scope.tenantId());
-            event.setOutletId(scope.outletId());
-            event.setActorId(scope.userId());
-            event.setActorEmail(scope.userEmail());
-            event.setImpersonatorId(scope.impersonatorId());
-        });
-        event.setEntityType(entityType);
-        event.setEntityId(entityId);
-        event.setEntityNumber(entityNumber);
-        event.setAction(action);
-        event.setSeverity(severity == null ? AuditSeverity.INFO : severity);
-        event.setSummary(summary);
-        event.setChanges(changes);
-        event.setMetadata(metadata);
-        event.setOccurredAt(Instant.now());
-        return auditEventRepository.save(event);
-    }
-
-    @Transactional
-    public AuditEvent record(String entityType, String action, String summary) {
-        return record(entityType, null, null, action, AuditSeverity.INFO, summary, null, null);
-    }
-
-    /**
-     * Built with JdbcTemplate rather than the {@code @Query} on AuditEventRepository:
-     * that query's "(:from IS NULL OR e.occurredAt >= :from)" pattern fails at the
-     * driver level with "could not determine data type of parameter" whenever from/to
-     * are actually null, because Postgres can't infer a type for a parameter whose
-     * only context is an IS NULL check. Only binding parameters for filters that are
-     * actually present avoids the ambiguity outright instead of fighting Hibernate's
-     * JPQL-to-SQL translation for it.
-     */
     @Transactional(readOnly = true)
     public PageResponse<AuditEventResponse> list(String entityType,
                                                  String action,

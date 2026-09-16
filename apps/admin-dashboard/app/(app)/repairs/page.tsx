@@ -33,55 +33,113 @@ import { Eye, Plus, PenTool } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
 import { api, money } from '@/lib/api';
 
+// Matches backend RepairOrderStatus (backend/repairs/domain/RepairOrderStatus.java) exactly.
 export type RepairStatus =
-  'RECEIVED' | 'DIAGNOSING' | 'IN_PROGRESS' | 'READY' | 'DELIVERED' | 'CANCELLED';
+  | 'RECEIVED'
+  | 'DIAGNOSING'
+  | 'AWAITING_APPROVAL'
+  | 'AWAITING_PARTS'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'DELIVERED'
+  | 'CANCELLED'
+  | 'IRREPARABLE';
+
+const STATUS_LABELS: Record<RepairStatus, string> = {
+  RECEIVED: 'Received',
+  DIAGNOSING: 'Diagnosing',
+  AWAITING_APPROVAL: 'Awaiting Approval',
+  AWAITING_PARTS: 'Awaiting Parts',
+  IN_PROGRESS: 'In Progress',
+  COMPLETED: 'Completed',
+  DELIVERED: 'Delivered',
+  CANCELLED: 'Cancelled',
+  IRREPARABLE: 'Irreparable',
+};
+
+// The natural "next step" for the primary action button. Any other transition
+// (e.g. skipping straight to CANCELLED/IRREPARABLE) is still possible via the
+// backend's /transition endpoint, just not offered as the one-click default here.
+const NEXT_STATUS: Partial<Record<RepairStatus, RepairStatus>> = {
+  RECEIVED: 'DIAGNOSING',
+  DIAGNOSING: 'IN_PROGRESS',
+  AWAITING_APPROVAL: 'IN_PROGRESS',
+  AWAITING_PARTS: 'IN_PROGRESS',
+  IN_PROGRESS: 'COMPLETED',
+  COMPLETED: 'DELIVERED',
+};
+
+const TERMINAL_STATUSES: RepairStatus[] = ['DELIVERED', 'CANCELLED', 'IRREPARABLE'];
 
 export interface RepairHistory {
   id: string;
-  status: RepairStatus;
-  notes?: string;
-  createdAt: string;
+  fromStatus: RepairStatus | null;
+  toStatus: RepairStatus;
+  note?: string;
+  changedAt: string;
+}
+
+export interface RepairLine {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
 }
 
 export interface Repair {
   id: string;
   repairNumber: string;
+  status: RepairStatus;
   customerName: string;
-  deviceDescription: string;
+  customerPhone?: string;
+  deviceType?: string;
   deviceBrand?: string;
   deviceModel?: string;
-  serialNumber?: string;
-  complaint?: string;
+  deviceSerial?: string;
+  reportedFault?: string;
+  diagnosis?: string;
   estimatedCost?: number;
-  totalAmount?: number;
-  technicianNote?: string;
-  status: RepairStatus;
-  technicianName?: string;
-  createdAt: string;
+  grandTotal?: number;
+  amountPaid?: number;
+  balanceDue?: number;
+  advancePaid?: number;
+  technicianId?: string;
+  note?: string;
+  receivedAt: string;
+  lines?: RepairLine[];
   history?: RepairHistory[];
 }
 
-export interface RepairRequest {
+type RepairForm = {
   customerName: string;
-  deviceDescription: string;
+  customerPhone: string;
+  deviceType: string;
   deviceBrand: string;
   deviceModel: string;
-  serialNumber: string;
-  complaint: string;
+  deviceSerial: string;
+  reportedFault: string;
   estimatedCost: number;
-  technicianNote: string;
-}
+  advancePaid: number;
+  note: string;
+};
 
-const emptyForm: RepairRequest = {
+const emptyForm: RepairForm = {
   customerName: '',
-  deviceDescription: '',
+  customerPhone: '',
+  deviceType: '',
   deviceBrand: '',
   deviceModel: '',
-  serialNumber: '',
-  complaint: '',
+  deviceSerial: '',
+  reportedFault: '',
   estimatedCost: 0,
-  technicianNote: '',
+  advancePaid: 0,
+  note: '',
 };
+
+function deviceSummary(r: Pick<Repair, 'deviceType' | 'deviceBrand' | 'deviceModel'>) {
+  return [r.deviceType, r.deviceBrand, r.deviceModel].filter(Boolean).join(' ') || '—';
+}
 
 export default function RepairsPage() {
   const queryClient = useQueryClient();
@@ -90,25 +148,40 @@ export default function RepairsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [selectedRepair, setSelectedRepair] = useState<Repair | null>(null);
-  const [form, setForm] = useState<RepairRequest>(emptyForm);
+  const [form, setForm] = useState<RepairForm>(emptyForm);
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState(0);
 
   const repairsQuery = useQuery({
     queryKey: ['repairs', q, statusFilter],
-    queryFn: () => api.get<any>(`/api/v1/repairs?size=100&q=${encodeURIComponent(q)}`),
+    queryFn: () =>
+      api.get<any>('/api/v1/repairs', {
+        size: 100,
+        q: q || undefined,
+        status: statusFilter !== 'ALL' ? statusFilter : undefined,
+      }),
   });
 
   const allRepairs = useMemo(() => {
     const data = repairsQuery.data;
     const items: Repair[] = Array.isArray(data) ? data : data?.content || [];
-    if (statusFilter !== 'ALL') {
-      return items.filter((r) => r.status === statusFilter);
-    }
     return items;
-  }, [repairsQuery.data, statusFilter]);
+  }, [repairsQuery.data]);
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      return api.post<Repair>('/api/v1/repairs', form);
+      return api.post<Repair>('/api/v1/repairs', {
+        customerName: form.customerName,
+        customerPhone: form.customerPhone || undefined,
+        deviceType: form.deviceType || undefined,
+        deviceBrand: form.deviceBrand || undefined,
+        deviceModel: form.deviceModel || undefined,
+        deviceSerial: form.deviceSerial || undefined,
+        reportedFault: form.reportedFault || undefined,
+        estimatedCost: form.estimatedCost || undefined,
+        advancePaid: form.advancePaid || undefined,
+        note: form.note || undefined,
+      });
     },
     onSuccess: () => {
       toast({ title: 'Repair order created', variant: 'success' });
@@ -125,9 +198,9 @@ export default function RepairsPage() {
     },
   });
 
-  const updateStatusMutation = useMutation({
+  const transitionMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: RepairStatus }) => {
-      return api.patch<Repair>(`/api/v1/repairs/${id}`, { status });
+      return api.post<Repair>(`/api/v1/repairs/${id}/transition`, { status });
     },
     onSuccess: (updated) => {
       toast({ title: 'Status updated', variant: 'success' });
@@ -140,6 +213,29 @@ export default function RepairsPage() {
       toast({
         title: 'Update failed',
         description: err instanceof ApiError ? err.message : 'Could not update status',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const paymentMutation = useMutation({
+    mutationFn: async ({ id, amount }: { id: string; amount: number }) => {
+      return api.post<Repair>(`/api/v1/repairs/${id}/payments`, {
+        method: 'CASH',
+        amount,
+      });
+    },
+    onSuccess: (updated) => {
+      toast({ title: 'Payment recorded', variant: 'success' });
+      setSelectedRepair(updated);
+      setPaymentOpen(false);
+      setPaymentAmount(0);
+      void queryClient.invalidateQueries({ queryKey: ['repairs'] });
+    },
+    onError: (err) => {
+      toast({
+        title: 'Payment failed',
+        description: err instanceof ApiError ? err.message : 'Could not record payment',
         variant: 'destructive',
       });
     },
@@ -165,28 +261,21 @@ export default function RepairsPage() {
       case 'RECEIVED':
         return 'info';
       case 'DIAGNOSING':
-        return 'secondary';
+      case 'AWAITING_APPROVAL':
+      case 'AWAITING_PARTS':
       case 'IN_PROGRESS':
         return 'secondary';
-      case 'READY':
+      case 'COMPLETED':
         return 'success';
       case 'DELIVERED':
         return 'navy';
       case 'CANCELLED':
+      case 'IRREPARABLE':
         return 'destructive';
       default:
         return 'default';
     }
   }
-
-  const statusProgression: Record<string, RepairStatus | null> = {
-    RECEIVED: 'DIAGNOSING',
-    DIAGNOSING: 'IN_PROGRESS',
-    IN_PROGRESS: 'READY',
-    READY: 'DELIVERED',
-    DELIVERED: null,
-    CANCELLED: null,
-  };
 
   return (
     <div>
@@ -208,19 +297,18 @@ export default function RepairsPage() {
           onChange={(e) => setQ(e.target.value)}
           className="flex-1"
         />
-        <div className="w-full sm:w-48">
+        <div className="w-full sm:w-56">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger>
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">All Statuses</SelectItem>
-              <SelectItem value="RECEIVED">Received</SelectItem>
-              <SelectItem value="DIAGNOSING">Diagnosing</SelectItem>
-              <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-              <SelectItem value="READY">Ready</SelectItem>
-              <SelectItem value="DELIVERED">Delivered</SelectItem>
-              <SelectItem value="CANCELLED">Cancelled</SelectItem>
+              {(Object.keys(STATUS_LABELS) as RepairStatus[]).map((s) => (
+                <SelectItem key={s} value={s}>
+                  {STATUS_LABELS[s]}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -248,11 +336,11 @@ export default function RepairsPage() {
               <TableRow>
                 <TableHead>Repair #</TableHead>
                 <TableHead>Customer</TableHead>
-                <TableHead>Device/Description</TableHead>
+                <TableHead>Device</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Technician</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Total</TableHead>
+                <TableHead>Balance Due</TableHead>
                 <TableHead className="w-[80px]" />
               </TableRow>
             </TableHeader>
@@ -262,16 +350,24 @@ export default function RepairsPage() {
                   <TableCell className="text-navy font-medium">{r.repairNumber}</TableCell>
                   <TableCell>{r.customerName}</TableCell>
                   <TableCell>
-                    <div className="line-clamp-1 max-w-[200px]" title={r.deviceDescription}>
-                      {r.deviceDescription}
+                    <div className="line-clamp-1 max-w-[200px]" title={deviceSummary(r)}>
+                      {deviceSummary(r)}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={getStatusBadgeVariant(r.status) as any}>{r.status}</Badge>
+                    <Badge variant={getStatusBadgeVariant(r.status) as any}>
+                      {STATUS_LABELS[r.status] ?? r.status}
+                    </Badge>
                   </TableCell>
-                  <TableCell>{r.technicianName || '—'}</TableCell>
-                  <TableCell>{new Date(r.createdAt).toLocaleDateString()}</TableCell>
-                  <TableCell>{r.totalAmount ? money(r.totalAmount) : '—'}</TableCell>
+                  <TableCell>{new Date(r.receivedAt).toLocaleDateString()}</TableCell>
+                  <TableCell>{r.grandTotal ? money(r.grandTotal) : '—'}</TableCell>
+                  <TableCell>
+                    {r.balanceDue ? (
+                      <span className="font-medium text-amber-600">{money(r.balanceDue)}</span>
+                    ) : (
+                      '—'
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Button variant="ghost" size="icon" aria-label="View repair">
                       <Eye className="h-4 w-4" />
@@ -302,14 +398,21 @@ export default function RepairsPage() {
                 onChange={(e) => setForm((f) => ({ ...f, customerName: e.target.value }))}
               />
             </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="deviceDescription">Device Description</Label>
+            <div className="space-y-2">
+              <Label htmlFor="customerPhone">Customer Phone</Label>
               <Input
-                id="deviceDescription"
-                required
-                value={form.deviceDescription}
-                onChange={(e) => setForm((f) => ({ ...f, deviceDescription: e.target.value }))}
-                placeholder="e.g. iPhone 13 Pro Max - Black"
+                id="customerPhone"
+                value={form.customerPhone}
+                onChange={(e) => setForm((f) => ({ ...f, customerPhone: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="deviceType">Device Type</Label>
+              <Input
+                id="deviceType"
+                placeholder="e.g. Phone, Laptop"
+                value={form.deviceType}
+                onChange={(e) => setForm((f) => ({ ...f, deviceType: e.target.value }))}
               />
             </div>
             <div className="space-y-2">
@@ -329,21 +432,21 @@ export default function RepairsPage() {
               />
             </div>
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="serialNumber">Serial Number / IMEI</Label>
+              <Label htmlFor="deviceSerial">Serial Number / IMEI</Label>
               <Input
-                id="serialNumber"
-                value={form.serialNumber}
-                onChange={(e) => setForm((f) => ({ ...f, serialNumber: e.target.value }))}
+                id="deviceSerial"
+                value={form.deviceSerial}
+                onChange={(e) => setForm((f) => ({ ...f, deviceSerial: e.target.value }))}
               />
             </div>
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="complaint">Complaint / Issue</Label>
+              <Label htmlFor="reportedFault">Complaint / Issue</Label>
               <textarea
-                id="complaint"
+                id="reportedFault"
                 required
                 className="border-input placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-[80px] w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50"
-                value={form.complaint}
-                onChange={(e) => setForm((f) => ({ ...f, complaint: e.target.value }))}
+                value={form.reportedFault}
+                onChange={(e) => setForm((f) => ({ ...f, reportedFault: e.target.value }))}
               />
             </div>
             <div className="space-y-2">
@@ -359,11 +462,23 @@ export default function RepairsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="technicianNote">Technician Note</Label>
+              <Label htmlFor="advancePaid">Advance Payment</Label>
               <Input
-                id="technicianNote"
-                value={form.technicianNote}
-                onChange={(e) => setForm((f) => ({ ...f, technicianNote: e.target.value }))}
+                id="advancePaid"
+                type="number"
+                step="0.01"
+                value={form.advancePaid || ''}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, advancePaid: parseFloat(e.target.value) || 0 }))
+                }
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="note">Note</Label>
+              <Input
+                id="note"
+                value={form.note}
+                onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
               />
             </div>
             <DialogFooter className="mt-4 sm:col-span-2">
@@ -375,6 +490,44 @@ export default function RepairsPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* PAYMENT DIALOG */}
+      <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Collect Payment</DialogTitle>
+            <DialogDescription>
+              Balance due: {selectedRepair ? money(selectedRepair.balanceDue ?? 0) : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            <Label htmlFor="paymentAmount">Amount (Cash)</Label>
+            <Input
+              id="paymentAmount"
+              type="number"
+              step="0.01"
+              autoFocus
+              value={paymentAmount || ''}
+              onChange={(e) => setPaymentAmount(parseFloat(e.target.value) || 0)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPaymentOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={paymentMutation.isPending || paymentAmount <= 0}
+              onClick={() => {
+                if (selectedRepair) {
+                  paymentMutation.mutate({ id: selectedRepair.id, amount: paymentAmount });
+                }
+              }}
+            >
+              {paymentMutation.isPending ? 'Recording...' : 'Record Payment'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -391,14 +544,14 @@ export default function RepairsPage() {
                       Repair {selectedRepair.repairNumber}
                     </DialogTitle>
                     <DialogDescription>
-                      Created on {new Date(selectedRepair.createdAt).toLocaleDateString()}
+                      Received on {new Date(selectedRepair.receivedAt).toLocaleDateString()}
                     </DialogDescription>
                   </div>
                   <Badge
                     variant={getStatusBadgeVariant(selectedRepair.status) as any}
                     className="text-sm"
                   >
-                    {selectedRepair.status}
+                    {STATUS_LABELS[selectedRepair.status] ?? selectedRepair.status}
                   </Badge>
                 </div>
               </DialogHeader>
@@ -407,43 +560,74 @@ export default function RepairsPage() {
                 <div className="bg-muted grid gap-4 rounded-lg p-4 text-sm sm:grid-cols-2">
                   <div>
                     <p className="text-muted-foreground mb-1 font-semibold">Customer</p>
-                    <p>{selectedRepair.customerName}</p>
+                    <p>
+                      {selectedRepair.customerName}
+                      {selectedRepair.customerPhone ? ` · ${selectedRepair.customerPhone}` : ''}
+                    </p>
                   </div>
                   <div>
                     <p className="text-muted-foreground mb-1 font-semibold">Device</p>
-                    <p>{selectedRepair.deviceDescription}</p>
+                    <p>{deviceSummary(selectedRepair)}</p>
                   </div>
-                  {(selectedRepair.deviceBrand || selectedRepair.deviceModel) && (
-                    <div>
-                      <p className="text-muted-foreground mb-1 font-semibold">Brand / Model</p>
-                      <p>
-                        {selectedRepair.deviceBrand} {selectedRepair.deviceModel}
-                      </p>
-                    </div>
-                  )}
-                  {selectedRepair.serialNumber && (
+                  {selectedRepair.deviceSerial && (
                     <div>
                       <p className="text-muted-foreground mb-1 font-semibold">Serial / IMEI</p>
-                      <p>{selectedRepair.serialNumber}</p>
+                      <p>{selectedRepair.deviceSerial}</p>
                     </div>
                   )}
                   <div className="sm:col-span-2">
                     <p className="text-muted-foreground mb-1 font-semibold">Complaint</p>
-                    <p className="whitespace-pre-wrap">{selectedRepair.complaint}</p>
+                    <p className="whitespace-pre-wrap">{selectedRepair.reportedFault}</p>
                   </div>
-                  {selectedRepair.estimatedCost && (
+                  {selectedRepair.diagnosis && (
+                    <div className="sm:col-span-2">
+                      <p className="text-muted-foreground mb-1 font-semibold">Diagnosis</p>
+                      <p className="whitespace-pre-wrap">{selectedRepair.diagnosis}</p>
+                    </div>
+                  )}
+                  {selectedRepair.estimatedCost ? (
                     <div>
                       <p className="text-muted-foreground mb-1 font-semibold">Estimated Cost</p>
                       <p>{money(selectedRepair.estimatedCost)}</p>
                     </div>
-                  )}
-                  {selectedRepair.totalAmount && (
+                  ) : null}
+                  {selectedRepair.grandTotal ? (
                     <div>
                       <p className="text-muted-foreground mb-1 font-semibold">Total Amount</p>
-                      <p className="text-navy font-medium">{money(selectedRepair.totalAmount)}</p>
+                      <p className="text-navy font-medium">{money(selectedRepair.grandTotal)}</p>
                     </div>
-                  )}
+                  ) : null}
+                  {selectedRepair.amountPaid ? (
+                    <div>
+                      <p className="text-muted-foreground mb-1 font-semibold">Amount Paid</p>
+                      <p>{money(selectedRepair.amountPaid)}</p>
+                    </div>
+                  ) : null}
+                  {selectedRepair.balanceDue ? (
+                    <div>
+                      <p className="text-muted-foreground mb-1 font-semibold">Balance Due</p>
+                      <p className="font-medium text-amber-600">
+                        {money(selectedRepair.balanceDue)}
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
+
+                {selectedRepair.lines && selectedRepair.lines.length > 0 && (
+                  <div>
+                    <h3 className="mb-3 font-semibold">Parts / Charges</h3>
+                    <div className="space-y-1 text-sm">
+                      {selectedRepair.lines.map((line) => (
+                        <div key={line.id} className="flex justify-between">
+                          <span>
+                            {line.description} × {line.quantity}
+                          </span>
+                          <span>{money(line.lineTotal)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {selectedRepair.history && selectedRepair.history.length > 0 && (
                   <div>
@@ -452,13 +636,13 @@ export default function RepairsPage() {
                       {selectedRepair.history.map((h) => (
                         <div key={h.id} className="flex gap-4 text-sm">
                           <div className="text-muted-foreground whitespace-nowrap">
-                            {new Date(h.createdAt).toLocaleDateString()}
+                            {new Date(h.changedAt).toLocaleDateString()}
                           </div>
                           <div>
-                            <Badge variant={getStatusBadgeVariant(h.status) as any}>
-                              {h.status}
+                            <Badge variant={getStatusBadgeVariant(h.toStatus) as any}>
+                              {STATUS_LABELS[h.toStatus] ?? h.toStatus}
                             </Badge>
-                            {h.notes && <p className="text-muted-foreground mt-1">{h.notes}</p>}
+                            {h.note && <p className="text-muted-foreground mt-1">{h.note}</p>}
                           </div>
                         </div>
                       ))}
@@ -467,37 +651,49 @@ export default function RepairsPage() {
                 )}
               </div>
 
-              <DialogFooter className="sm:justify-between">
-                {selectedRepair.status !== 'CANCELLED' && selectedRepair.status !== 'DELIVERED' ? (
+              <DialogFooter className="flex-wrap gap-2 sm:justify-between">
+                {!TERMINAL_STATUSES.includes(selectedRepair.status) ? (
                   <Button
                     variant="destructive"
                     onClick={() =>
-                      updateStatusMutation.mutate({ id: selectedRepair.id, status: 'CANCELLED' })
+                      transitionMutation.mutate({ id: selectedRepair.id, status: 'CANCELLED' })
                     }
-                    disabled={updateStatusMutation.isPending}
+                    disabled={transitionMutation.isPending}
                   >
                     Cancel Repair
                   </Button>
                 ) : (
                   <div></div>
                 )}
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  {(selectedRepair.balanceDue ?? 0) > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setPaymentAmount(selectedRepair.balanceDue ?? 0);
+                        setPaymentOpen(true);
+                      }}
+                    >
+                      Collect Payment
+                    </Button>
+                  )}
                   <Button type="button" variant="outline" onClick={() => setViewOpen(false)}>
                     Close
                   </Button>
-                  {statusProgression[selectedRepair.status] && (
+                  {NEXT_STATUS[selectedRepair.status] && (
                     <Button
                       onClick={() =>
-                        updateStatusMutation.mutate({
+                        transitionMutation.mutate({
                           id: selectedRepair.id,
-                          status: statusProgression[selectedRepair.status] as RepairStatus,
+                          status: NEXT_STATUS[selectedRepair.status] as RepairStatus,
                         })
                       }
-                      disabled={updateStatusMutation.isPending}
+                      disabled={transitionMutation.isPending}
                     >
-                      {updateStatusMutation.isPending
+                      {transitionMutation.isPending
                         ? 'Updating...'
-                        : `Mark as ${statusProgression[selectedRepair.status]}`}
+                        : `Mark as ${STATUS_LABELS[NEXT_STATUS[selectedRepair.status] as RepairStatus]}`}
                     </Button>
                   )}
                 </div>

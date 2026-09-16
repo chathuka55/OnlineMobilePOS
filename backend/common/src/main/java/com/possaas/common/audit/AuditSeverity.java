@@ -1,4 +1,4 @@
-package com.possaas.reporting.domain;
+package com.possaas.common.audit;
 
 public enum AuditSeverity {
     INFO,

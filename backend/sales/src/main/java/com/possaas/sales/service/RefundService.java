@@ -1,6 +1,8 @@
 package com.possaas.sales.service;
 
 import com.possaas.catalog.service.StockLedgerService;
+import com.possaas.common.audit.AuditService;
+import com.possaas.common.audit.AuditSeverity;
 import com.possaas.common.error.ApiException;
 import com.possaas.common.error.ErrorCode;
 import com.possaas.common.money.Money;
@@ -49,19 +51,22 @@ public class RefundService {
     private final DocumentNumberService documentNumberService;
     private final StockLedgerService stockLedgerService;
     private final CreditNoteService creditNoteService;
+    private final AuditService auditService;
 
     public RefundService(RefundRepository refundRepository,
                          BillRepository billRepository,
                          PaymentRepository paymentRepository,
                          DocumentNumberService documentNumberService,
                          StockLedgerService stockLedgerService,
-                         CreditNoteService creditNoteService) {
+                         CreditNoteService creditNoteService,
+                         AuditService auditService) {
         this.refundRepository = refundRepository;
         this.billRepository = billRepository;
         this.paymentRepository = paymentRepository;
         this.documentNumberService = documentNumberService;
         this.stockLedgerService = stockLedgerService;
         this.creditNoteService = creditNoteService;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -250,7 +255,13 @@ public class RefundService {
         bill.setUpdatedBy(TenantContext.userIdOrNull());
         billRepository.save(bill);
 
-        return SalesMapper.toRefund(refundRepository.save(refund));
+        Refund saved = refundRepository.save(refund);
+        auditService.record("REFUND", saved.getId(), saved.getRefundNumber(), "CREATE",
+                AuditSeverity.WARN,
+                "Refunded " + saved.getRefundNumber() + " against bill " + bill.getBillNumber(),
+                Map.of("scope", scope.name(), "amount", saved.getRefundAmount()), null);
+
+        return SalesMapper.toRefund(saved);
     }
 
     @Transactional(readOnly = true)

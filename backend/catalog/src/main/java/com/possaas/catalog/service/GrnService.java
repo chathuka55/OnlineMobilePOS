@@ -19,6 +19,7 @@ import com.possaas.tenancy.domain.DocumentType;
 import com.possaas.tenancy.service.DocumentNumberService;
 import com.possaas.tenancy.service.TenantService;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -133,11 +134,22 @@ public class GrnService {
                         .with("itemId", item.getId());
             }
 
+            BigDecimal previousQuantity = item.getQuantityOnHand();
+            BigDecimal previousCost = item.getCostPrice();
+
             stockLedgerService.receiveGrn(
                     item.getId(), quantity, unitCost, "GRN", grn.getId());
 
-            // Keep item cost in step with the latest receipt when receiving stock.
-            item.setCostPrice(unitCost);
+            // Weighted-average cost, not a flat overwrite: this item's SKU still has
+            // units on hand from whatever was bought before this receipt, so blending
+            // the two costs (rather than replacing the cost with just the new
+            // receipt's price) avoids silently revaluing older stock to the new price.
+            // This isn't full FIFO/lot costing - that needs a real stock-lots table -
+            // but it's a correct blended cost rather than a wrong one.
+            item.setCostPrice(previousQuantity.signum() <= 0 || previousCost == null
+                    ? unitCost
+                    : previousQuantity.multiply(previousCost).add(quantity.multiply(unitCost))
+                            .divide(previousQuantity.add(quantity), Money.SCALE, RoundingMode.HALF_UP));
             itemRepository.save(item);
 
             subtotal = Money.add(subtotal, lineTotal);

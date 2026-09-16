@@ -2,6 +2,8 @@ package com.possaas.sales.service;
 
 import com.possaas.catalog.service.StockLedgerService;
 import com.possaas.common.api.PageResponse;
+import com.possaas.common.audit.AuditService;
+import com.possaas.common.audit.AuditSeverity;
 import com.possaas.common.error.ApiException;
 import com.possaas.common.error.ErrorCode;
 import com.possaas.common.money.Money;
@@ -39,19 +41,22 @@ public class BillService {
     private final CreditNoteRepository creditNoteRepository;
     private final StockLedgerService stockLedgerService;
     private final CustomerRepository customerRepository;
+    private final AuditService auditService;
 
     public BillService(BillRepository billRepository,
                        PaymentRepository paymentRepository,
                        CreditNoteRedemptionRepository redemptionRepository,
                        CreditNoteRepository creditNoteRepository,
                        StockLedgerService stockLedgerService,
-                       CustomerRepository customerRepository) {
+                       CustomerRepository customerRepository,
+                       AuditService auditService) {
         this.billRepository = billRepository;
         this.paymentRepository = paymentRepository;
         this.redemptionRepository = redemptionRepository;
         this.creditNoteRepository = creditNoteRepository;
         this.stockLedgerService = stockLedgerService;
         this.customerRepository = customerRepository;
+        this.auditService = auditService;
     }
 
     @Transactional(readOnly = true)
@@ -119,6 +124,13 @@ public class BillService {
         bill.setUpdatedBy(TenantContext.userIdOrNull());
         bill.setBalanceDue(Money.ZERO);
         bill = billRepository.save(bill);
+
+        auditService.record("BILL", bill.getId(), bill.getBillNumber(), "VOID",
+                AuditSeverity.WARN,
+                "Voided bill " + bill.getBillNumber()
+                        + (request != null && request.reason() != null ? ": " + request.reason() : ""),
+                java.util.Map.of("status", "VOIDED"), null);
+
         return SalesMapper.toBill(bill, paymentsFor(bill.getId()));
     }
 

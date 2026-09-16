@@ -1,6 +1,6 @@
 package com.possaas.reporting.api.dto;
 
-import com.possaas.reporting.domain.AuditSeverity;
+import com.possaas.common.audit.AuditSeverity;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;

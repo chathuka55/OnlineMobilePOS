@@ -1,10 +1,11 @@
 package com.possaas.reporting.web;
 
 import com.possaas.common.api.PageResponse;
+import com.possaas.common.audit.AuditService;
+import com.possaas.common.audit.AuditSeverity;
 import com.possaas.reporting.api.dto.ReportingDtos.AuditEventResponse;
 import com.possaas.reporting.api.dto.ReportingDtos.RecordAuditRequest;
-import com.possaas.reporting.domain.AuditSeverity;
-import com.possaas.reporting.service.AuditService;
+import com.possaas.reporting.service.AuditQueryService;
 import java.time.Instant;
 import java.util.UUID;
 import org.springframework.data.domain.Pageable;
@@ -24,9 +25,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/audit-events")
 public class AuditController {
 
+    private final AuditQueryService auditQueryService;
     private final AuditService auditService;
 
-    public AuditController(AuditService auditService) {
+    public AuditController(AuditQueryService auditQueryService, AuditService auditService) {
+        this.auditQueryService = auditQueryService;
         this.auditService = auditService;
     }
 
@@ -40,7 +43,7 @@ public class AuditController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
             @PageableDefault(size = 50, sort = "occurredAt", direction = Sort.Direction.DESC)
             Pageable pageable) {
-        return auditService.list(entityType, action, severity, actorId, from, to, pageable);
+        return auditQueryService.list(entityType, action, severity, actorId, from, to, pageable);
     }
 
     @PostMapping

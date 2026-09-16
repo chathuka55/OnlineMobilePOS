@@ -1,4 +1,4 @@
-package com.possaas.reporting.domain;
+package com.possaas.common.audit;
 
 import com.possaas.common.id.Uuid;
 import jakarta.persistence.Column;

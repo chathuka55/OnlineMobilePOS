@@ -7,6 +7,8 @@ import com.possaas.catalog.repository.ItemRepository;
 import com.possaas.catalog.repository.ItemSerialRepository;
 import com.possaas.catalog.service.StockLedgerService;
 import com.possaas.common.api.PageResponse;
+import com.possaas.common.audit.AuditService;
+import com.possaas.common.audit.AuditSeverity;
 import com.possaas.common.error.ApiException;
 import com.possaas.common.error.ErrorCode;
 import com.possaas.common.money.Money;
@@ -91,6 +93,7 @@ public class RepairService {
     private final PaymentRepository paymentRepository;
     private final DocumentNumberService documentNumberService;
     private final StockLedgerService stockLedgerService;
+    private final AuditService auditService;
 
     public RepairService(RepairOrderRepository repairOrderRepository,
                          ItemRepository itemRepository,
@@ -99,7 +102,8 @@ public class RepairService {
                          TaxRateRepository taxRateRepository,
                          PaymentRepository paymentRepository,
                          DocumentNumberService documentNumberService,
-                         StockLedgerService stockLedgerService) {
+                         StockLedgerService stockLedgerService,
+                         AuditService auditService) {
         this.repairOrderRepository = repairOrderRepository;
         this.itemRepository = itemRepository;
         this.itemSerialRepository = itemSerialRepository;
@@ -108,6 +112,7 @@ public class RepairService {
         this.paymentRepository = paymentRepository;
         this.documentNumberService = documentNumberService;
         this.stockLedgerService = stockLedgerService;
+        this.auditService = auditService;
     }
 
     @Transactional(readOnly = true)
@@ -310,7 +315,14 @@ public class RepairService {
         order.setStatus(to);
         order.setUpdatedBy(TenantContext.userIdOrNull());
         order.addHistory(RepairHistory.of(from, to, request.note(), TenantContext.userIdOrNull()));
-        return RepairMapper.toResponse(repairOrderRepository.save(order));
+        RepairOrder saved = repairOrderRepository.save(order);
+
+        auditService.record("REPAIR_ORDER", saved.getId(), saved.getRepairNumber(), "TRANSITION",
+                to == RepairOrderStatus.CANCELLED ? AuditSeverity.WARN : AuditSeverity.INFO,
+                "Repair " + saved.getRepairNumber() + " moved from " + from + " to " + to,
+                java.util.Map.of("from", from.name(), "to", to.name()), null);
+
+        return RepairMapper.toResponse(saved);
     }
 
     @Transactional
@@ -329,7 +341,14 @@ public class RepairService {
         order.setAmountPaid(Money.add(order.getAmountPaid(), applied));
         recalculate(order);
         order.setUpdatedBy(TenantContext.userIdOrNull());
-        return RepairMapper.toResponse(repairOrderRepository.save(order));
+        RepairOrder saved = repairOrderRepository.save(order);
+
+        auditService.record("REPAIR_ORDER", saved.getId(), saved.getRepairNumber(), "PAYMENT",
+                AuditSeverity.INFO,
+                "Collected " + applied + " on repair " + saved.getRepairNumber(),
+                java.util.Map.of("amount", applied, "method", request.method().name()), null);
+
+        return RepairMapper.toResponse(saved);
     }
 
     @Transactional
@@ -374,7 +393,15 @@ public class RepairService {
         }
         recalculate(order);
         order.setUpdatedBy(TenantContext.userIdOrNull());
-        return RepairMapper.toResponse(repairOrderRepository.save(order));
+        RepairOrder saved = repairOrderRepository.save(order);
+
+        auditService.record("REPAIR_ORDER", saved.getId(), saved.getRepairNumber(), "REFUND",
+                AuditSeverity.WARN,
+                "Refunded " + amount + " on repair " + saved.getRepairNumber()
+                        + (request.reason() != null ? ": " + request.reason() : ""),
+                java.util.Map.of("amount", amount, "restoreParts", request.restoreParts()), null);
+
+        return RepairMapper.toResponse(saved);
     }
 
     private void deductPartsStock(RepairOrder order) {

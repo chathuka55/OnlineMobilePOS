@@ -8,9 +8,14 @@ dependencies {
     api project(':backend:wholesale')
 
     api("net.sf.jasperreports:jasperreports:${jasperReportsVersion}") {
-        // Pulled in transitively but conflicts with the Spring-managed stack.
+        // com.lowagie:itext:2.1.7.js10 (below) predates proper generics: its
+        // Phrase class only has add(Object), not the add(Element) bridge method
+        // JasperReports 6.21's classic PDF export module is compiled against,
+        // which throws NoSuchMethodError at PDF-export time. OpenPDF is the
+        // actively-maintained fork JasperReports itself recommends, keeping the
+        // same com.lowagie.text package for drop-in compatibility.
         exclude group: 'com.lowagie', module: 'itext'
         exclude group: 'org.apache.xmlgraphics', module: 'batik-bridge'
     }
-    api "com.lowagie:itext:2.1.7.js10"
+    api "com.github.librepdf:openpdf:1.3.30"
 }

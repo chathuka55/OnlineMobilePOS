@@ -77,12 +77,7 @@ public class AuditEvent implements Persistable<UUID> {
     @Column(name = "metadata", columnDefinition = "jsonb")
     private Map<String, Object> metadata;
 
-    // ip_address is Postgres `inet`, not varchar. Binding a plain String parameter
-    // (even NULL) against an inet column fails with "column is of type inet but
-    // expression is of type character varying" unless the driver is told not to
-    // assume varchar - SqlTypes.OTHER lets pgjdbc infer the real column type.
-    @JdbcTypeCode(SqlTypes.OTHER)
-    @Column(name = "ip_address", columnDefinition = "inet")
+    @Column(name = "ip_address")
     private String ipAddress;
 
     @Column(name = "user_agent")

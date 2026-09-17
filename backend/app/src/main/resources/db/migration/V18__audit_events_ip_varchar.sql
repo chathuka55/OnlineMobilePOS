@@ -1,0 +1,11 @@
+-- ============================================================================
+-- V18  audit_events.ip_address: inet -> varchar.
+--
+-- Postgres's `inet` type has no clean JPA/Hibernate mapping for a String field,
+-- and nothing in this codebase captures a real client IP to store here yet
+-- (the column has only ever held NULL). Both SqlTypes.OTHER and a plain
+-- varchar-typed bind still failed against a genuinely `inet` column with
+-- "column is of type inet but expression is of type ..." - a plain varchar
+-- column sidesteps the whole problem, matching how the field is actually used.
+-- ============================================================================
+ALTER TABLE audit_events ALTER COLUMN ip_address TYPE varchar(64) USING ip_address::varchar;

@@ -1,6 +1,7 @@
 package com.possaas.common.audit;
 
 import com.possaas.common.tenant.TenantContext;
+import jakarta.persistence.EntityManager;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -17,12 +18,19 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AuditService {
 
-    private final AuditEventRepository auditEventRepository;
+    private final EntityManager entityManager;
 
-    public AuditService(AuditEventRepository auditEventRepository) {
-        this.auditEventRepository = auditEventRepository;
+    public AuditService(EntityManager entityManager) {
+        this.entityManager = entityManager;
     }
 
+    /**
+     * Uses entityManager.persist() directly rather than JpaRepository.save():
+     * every AuditEvent is unconditionally new (the table is append-only, enforced
+     * by a DB trigger), but save()'s Persistable.isNew() check misidentified a
+     * fresh event as existing and issued an UPDATE, which the trigger correctly
+     * rejected ("audit_events is append-only"). persist() never has to guess.
+     */
     @Transactional
     public AuditEvent record(String entityType,
                              UUID entityId,
@@ -49,7 +57,8 @@ public class AuditService {
         event.setChanges(changes);
         event.setMetadata(metadata);
         event.setOccurredAt(Instant.now());
-        return auditEventRepository.save(event);
+        entityManager.persist(event);
+        return event;
     }
 
     @Transactional

@@ -59,21 +59,21 @@ public class AuditController {
                 request.changes(),
                 request.metadata());
         return new AuditEventResponse(
-                event.getId(),
-                event.getTenantId(),
-                event.getOutletId(),
-                event.getEntityType(),
-                event.getEntityId(),
-                event.getEntityNumber(),
-                event.getAction(),
-                event.getSeverity(),
-                event.getActorId(),
-                event.getActorEmail(),
-                event.getActorName(),
-                event.getImpersonatorId(),
-                event.getSummary(),
-                event.getChanges(),
-                event.getMetadata(),
-                event.getOccurredAt());
+                event.id(),
+                event.tenantId(),
+                event.outletId(),
+                event.entityType(),
+                event.entityId(),
+                event.entityNumber(),
+                event.action(),
+                event.severity(),
+                event.actorId(),
+                event.actorEmail(),
+                null,
+                event.impersonatorId(),
+                event.summary(),
+                event.changes(),
+                event.metadata(),
+                event.occurredAt());
     }
 }

@@ -938,7 +938,10 @@ export default function RepairsPage() {
             </Button>
             <Button
               disabled={
-                addLineMutation.isPending || !lineForm.description || lineForm.quantity <= 0
+                addLineMutation.isPending ||
+                !lineForm.description ||
+                lineForm.quantity <= 0 ||
+                (lineForm.lineType === 'PART' && !lineForm.itemId)
               }
               onClick={() => {
                 if (selectedRepair) addLineMutation.mutate(selectedRepair.id);

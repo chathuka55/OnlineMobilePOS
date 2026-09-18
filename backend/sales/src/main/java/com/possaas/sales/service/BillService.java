@@ -35,6 +35,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class BillService {
 
+    private static final Instant FAR_FUTURE = Instant.parse("9999-12-31T23:59:59Z");
+
     private final BillRepository billRepository;
     private final PaymentRepository paymentRepository;
     private final CreditNoteRedemptionRepository redemptionRepository;
@@ -73,8 +75,13 @@ public class BillService {
                                                     Instant to,
                                                     Pageable pageable) {
         String query = (q == null || q.isBlank()) ? null : q.trim();
+        // PgJDBC can't infer a type for a bare "$n IS NULL" check on an Instant parameter,
+        // so a null from/to blows up with "could not determine data type of parameter" -
+        // sidestep it by never binding a null Instant at all.
+        Instant effectiveFrom = from == null ? Instant.EPOCH : from;
+        Instant effectiveTo = to == null ? FAR_FUTURE : to;
         return PageResponse.of(
-                billRepository.search(query, status, customerId, from, to, pageable),
+                billRepository.search(query, status, customerId, effectiveFrom, effectiveTo, pageable),
                 SalesMapper::toBillSummary);
     }
 

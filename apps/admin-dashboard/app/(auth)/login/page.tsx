@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { FormEvent, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { FormEvent, Suspense, useEffect, useState } from 'react';
 import { Boxes } from 'lucide-react';
 import { ApiError } from '@possaas/api-client';
 import {
@@ -19,21 +19,45 @@ import {
 import { api } from '@/lib/api';
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const params = useSearchParams();
+  const linkedShop = (params.get('shop') ?? '').trim().toLowerCase();
   const [loading, setLoading] = useState(false);
+  const [shopName, setShopName] = useState<string | null>(null);
+  const [shopMissing, setShopMissing] = useState(false);
+
+  useEffect(() => {
+    if (!linkedShop) return;
+    let cancelled = false;
+    api.auth
+      .shopInfo(linkedShop)
+      .then((info) => !cancelled && setShopName(info.businessName))
+      .catch(() => !cancelled && setShopMissing(true));
+    return () => {
+      cancelled = true;
+    };
+  }, [linkedShop]);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
     setLoading(true);
     try {
-      const { user } = await api.auth.login({
+      await api.auth.login({
         emailOrUsername: String(form.get('email') ?? ''),
         password: String(form.get('password') ?? ''),
-        tenantSlug: String(form.get('tenantSlug') ?? '') || undefined,
+        tenantSlug: linkedShop || String(form.get('tenantSlug') ?? '').trim().toLowerCase(),
       });
       toast({ title: 'Welcome back', description: 'Signed in successfully.', variant: 'success' });
-      router.replace(user.platformAdmin ? '/platform' : '/dashboard');
+      router.replace('/dashboard');
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'Unable to sign in';
       toast({ title: 'Login failed', description: message, variant: 'destructive' });
@@ -55,10 +79,14 @@ export default function LoginPage() {
               <p className="text-primary text-xs font-semibold uppercase tracking-[0.18em]">
                 Easy POS
               </p>
-              <CardTitle>Sign in</CardTitle>
+              <CardTitle>{shopName ?? 'Sign in'}</CardTitle>
             </div>
           </div>
-          <CardDescription>Access your storefront admin console.</CardDescription>
+          <CardDescription>
+            {shopMissing
+              ? 'This shop link is not valid. Check the address you were given.'
+              : 'Sign in to your shop.'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={onSubmit}>
@@ -84,8 +112,15 @@ export default function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="tenantSlug">Tenant slug (optional)</Label>
-              <Input id="tenantSlug" name="tenantSlug" placeholder="acme-retail" />
+              <Label htmlFor="tenantSlug">Shop code</Label>
+              <Input
+                id="tenantSlug"
+                name="tenantSlug"
+                placeholder="acme-retail"
+                required={!linkedShop}
+                defaultValue={linkedShop}
+                readOnly={!!linkedShop}
+              />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Signing in…' : 'Sign in'}

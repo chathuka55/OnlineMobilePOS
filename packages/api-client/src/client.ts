@@ -190,6 +190,15 @@ export function createPosApiClient(options: PosApiClientOptions = {}) {
         const data = await post<TokenResponse>('/api/v1/auth/login', payload, false);
         return persistAuth(data);
       },
+      async platformLogin(payload: LoginRequest) {
+        const data = await post<TokenResponse>('/api/v1/auth/platform/login', payload, false);
+        return persistAuth(data);
+      },
+      shopInfo(slug: string) {
+        return get<{ slug: string; businessName: string }>(
+          `/api/v1/auth/shop/${encodeURIComponent(slug)}`,
+        );
+      },
       async signup(payload: SignupRequest) {
         const data = await post<TokenResponse>('/api/v1/auth/signup', payload, false);
         return persistAuth(data);

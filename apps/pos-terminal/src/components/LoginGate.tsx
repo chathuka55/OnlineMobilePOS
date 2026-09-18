@@ -14,7 +14,7 @@ export function LoginGate({ onAuthed }: { onAuthed: (user: User) => void }) {
       const tokens = await api.auth.login({
         emailOrUsername: String(form.get('email') ?? ''),
         password: String(form.get('password') ?? ''),
-        tenantSlug: String(form.get('tenantSlug') ?? '') || undefined,
+        tenantSlug: String(form.get('tenantSlug') ?? '').trim().toLowerCase(),
         deviceLabel: 'POS Terminal',
       });
       onAuthed(tokens.user);
@@ -48,8 +48,13 @@ export function LoginGate({ onAuthed }: { onAuthed: (user: User) => void }) {
               <Input id="password" name="password" type="password" required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="tenantSlug">Tenant slug</Label>
-              <Input id="tenantSlug" name="tenantSlug" />
+              <Label htmlFor="tenantSlug">Shop code</Label>
+              <Input
+                id="tenantSlug"
+                name="tenantSlug"
+                required
+                defaultValue={new URLSearchParams(window.location.search).get('shop') ?? ''}
+              />
             </div>
             <Button className="w-full" disabled={loading}>
               {loading ? 'Signing in…' : 'Open terminal'}

@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppMain, AppShell, Spinner } from '@possaas/ui';
 import { AppSidebar } from '@/components/app-sidebar';
+import { ImpersonationBanner } from '@/components/impersonation-banner';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -30,6 +31,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <AppShell>
       <AppSidebar />
       <AppMain>
+        <ImpersonationBanner />
         <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children}</div>
       </AppMain>
     </AppShell>

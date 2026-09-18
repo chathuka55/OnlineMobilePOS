@@ -7,12 +7,12 @@ import { PlatformSidebar } from '@/components/platform-sidebar';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 
 export default function PlatformLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useRequireAuth();
+  const { user, loading } = useRequireAuth('/platform/login');
   const router = useRouter();
 
   useEffect(() => {
     if (!loading && user && !user.platformAdmin) {
-      router.replace('/dashboard');
+      router.replace('/login');
     }
   }, [loading, user, router]);
 

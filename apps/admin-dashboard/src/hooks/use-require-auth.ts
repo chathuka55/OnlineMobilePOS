@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import type { User } from '@possaas/api-client';
 
-export function useRequireAuth() {
+export function useRequireAuth(loginPath = '/login') {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -16,7 +16,7 @@ export function useRequireAuth() {
     async function run() {
       const token = api.tokens.getAccessToken();
       if (!token) {
-        router.replace('/login');
+        router.replace(loginPath);
         return;
       }
 
@@ -32,7 +32,7 @@ export function useRequireAuth() {
       } catch {
         if (!cancelled) {
           api.tokens.clear();
-          router.replace('/login');
+          router.replace(loginPath);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -43,7 +43,7 @@ export function useRequireAuth() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, loginPath]);
 
   return { user, loading };
 }

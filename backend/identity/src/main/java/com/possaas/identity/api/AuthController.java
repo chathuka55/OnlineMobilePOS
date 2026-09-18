@@ -16,6 +16,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -53,6 +54,17 @@ public class AuthController {
     public TokenResponse login(@Valid @RequestBody LoginRequest request,
                                HttpServletRequest httpRequest) {
         return authService.login(request, httpRequest.getHeader("User-Agent"));
+    }
+
+    @PostMapping("/platform/login")
+    public TokenResponse platformLogin(@Valid @RequestBody LoginRequest request,
+                                       HttpServletRequest httpRequest) {
+        return authService.platformLogin(request, httpRequest.getHeader("User-Agent"));
+    }
+
+    @GetMapping("/shop/{slug}")
+    public AuthService.PublicShopInfo shopInfo(@PathVariable String slug) {
+        return authService.publicShopInfo(slug);
     }
 
     @PostMapping("/refresh")

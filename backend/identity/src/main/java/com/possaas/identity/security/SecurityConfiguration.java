@@ -54,6 +54,8 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(
                                 "/api/v1/auth/login",
+                                "/api/v1/auth/platform/login",
+                                "/api/v1/auth/shop/*",
                                 "/api/v1/auth/refresh",
                                 "/api/v1/auth/signup",
                                 "/api/v1/auth/bootstrap-platform-admin",

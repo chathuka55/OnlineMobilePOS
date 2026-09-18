@@ -30,8 +30,9 @@ import {
   TableRow,
   toast,
 } from '@possaas/ui';
-import { Ban, CheckCircle2, LogIn, Search, Store } from 'lucide-react';
+import { Ban, CheckCircle2, Link2, LogIn, Search, Store } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
+import { stashPlatformSession } from '@/components/impersonation-banner';
 import { api, asList } from '@/lib/api';
 
 const STATUS_LABELS: Record<TenantStatus, string> = {
@@ -111,10 +112,21 @@ export default function PlatformShopsPage() {
     },
   });
 
+  async function copyShopLink(shop: PlatformTenantSummary) {
+    const url = `${window.location.origin}/login?shop=${encodeURIComponent(shop.slug)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({ title: 'Shop sign-in link copied', description: url, variant: 'success' });
+    } catch {
+      toast({ title: 'Shop sign-in link', description: url });
+    }
+  }
+
   async function impersonate(shop: PlatformTenantSummary) {
     setImpersonatingId(shop.id);
     try {
       const result = await api.platform.tenants.impersonate(shop.id);
+      stashPlatformSession();
       api.tokens.setAccessToken(result.accessToken);
       api.tokens.setUserJson('');
       toast({ title: `Signed in as ${shop.businessName}`, variant: 'success' });
@@ -202,6 +214,10 @@ export default function PlatformShopsPage() {
                   <TableCell>{new Date(shop.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-2">
+                      <Button size="sm" variant="ghost" onClick={() => copyShopLink(shop)}>
+                        <Link2 className="h-3.5 w-3.5" />
+                        Link
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"

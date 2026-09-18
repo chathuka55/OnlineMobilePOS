@@ -56,7 +56,7 @@ export function AppSidebar() {
     } catch {
       api.tokens.clear();
     }
-    router.replace('/login');
+    router.replace(user?.tenantSlug ? `/login?shop=${encodeURIComponent(user.tenantSlug)}` : '/login');
   }
 
   return (

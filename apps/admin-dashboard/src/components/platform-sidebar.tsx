@@ -31,7 +31,7 @@ export function PlatformSidebar() {
     } catch {
       api.tokens.clear();
     }
-    router.replace('/login');
+    router.replace('/platform/login');
   }
 
   return (

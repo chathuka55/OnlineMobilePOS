@@ -138,26 +138,46 @@ public class AuthService {
         return userRepository.saveAndFlush(user);
     }
 
+    /** Shop portal sign-in. A shop code is mandatory, so platform operators can never authenticate here. */
     @Transactional
     public TokenResponse login(LoginRequest request, String userAgent) {
         String identity = request.emailOrUsername().trim();
         String slug = blankToNull(request.tenantSlug());
-
-        User user;
-        Tenant tenant;
-        if (slug != null) {
-            tenant = requireAuthenticatableTenant(slug);
-            AtomicReference<User> found = new AtomicReference<>();
-            TenantContext.runAs(
-                    TenantContext.Scope.forTenant(tenant.getId(), tenant.getSlug(), null, null, null),
-                    () -> found.set(findUserForLogin(identity).orElse(null)));
-            user = found.get();
-        } else {
-            // No slug → only platform operators are visible under a null tenant scope.
-            user = findUserForLogin(identity).orElse(null);
-            tenant = null;
+        if (slug == null) {
+            throw ApiException.validation("Shop code is required to sign in");
         }
 
+        Tenant tenant = requireAuthenticatableTenant(slug);
+        AtomicReference<User> found = new AtomicReference<>();
+        TenantContext.runAs(
+                TenantContext.Scope.forTenant(tenant.getId(), tenant.getSlug(), null, null, null),
+                () -> found.set(findUserForLogin(identity).orElse(null)));
+        return completeLogin(found.get(), tenant, request, userAgent);
+    }
+
+    /** Service-provider portal sign-in. Only platform operators (no tenant) are visible and accepted. */
+    @Transactional
+    public TokenResponse platformLogin(LoginRequest request, String userAgent) {
+        User user = findUserForLogin(request.emailOrUsername().trim()).orElse(null);
+        if (user != null && !user.isPlatformAdmin()) {
+            user = null;
+        }
+        return completeLogin(user, null, request, userAgent);
+    }
+
+    /** Public, non-sensitive branding for a shop's own sign-in page. */
+    @Transactional(readOnly = true)
+    public PublicShopInfo publicShopInfo(String slug) {
+        Tenant tenant = tenantRepository.findBySlugIgnoreCaseAndDeletedAtIsNull(slug)
+                .filter(Tenant::canAuthenticate)
+                .orElseThrow(() -> new ApiException(ErrorCode.TENANT_NOT_FOUND, "Shop not found"));
+        return new PublicShopInfo(tenant.getSlug(), tenant.getBusinessName());
+    }
+
+    public record PublicShopInfo(String slug, String businessName) {
+    }
+
+    private TokenResponse completeLogin(User user, Tenant tenant, LoginRequest request, String userAgent) {
         if (user == null) {
             throw invalidCredentials();
         }

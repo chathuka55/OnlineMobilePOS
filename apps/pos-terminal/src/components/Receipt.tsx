@@ -1,10 +1,13 @@
 import type { Bill, Outlet, Tenant } from '@possaas/api-client';
 import { money } from '../lib/api';
 
+export type LogoLayout = 'SIDE' | 'CENTERED';
+
 type Props = {
   bill: Bill;
   tenant: Tenant | null;
   outlet: Outlet | null;
+  logoLayout?: LogoLayout;
 };
 
 /**
@@ -12,20 +15,30 @@ type Props = {
  * by the @media print rules in styles.css, which also pick the physical page size
  * to match whichever format the cashier selected in lib/print.ts.
  */
-export function Receipt({ bill, tenant, outlet }: Props) {
+export function Receipt({ bill, tenant, outlet, logoLayout = 'SIDE' }: Props) {
   const currency = bill.currency ?? tenant?.defaultCurrency ?? 'LKR';
+  const hasLogo = !!outlet?.logoDataUrl;
+  // No logo means there's nothing to sit "beside", so business details are always
+  // centered in that case - SIDE only makes sense once there's actually a logo.
+  const headerMode: LogoLayout = hasLogo ? logoLayout : 'CENTERED';
 
-  return (
-    <div id="receipt-print">
-      {outlet?.logoDataUrl ? (
-        <img src={outlet.logoDataUrl} alt="" className="receipt-logo" />
-      ) : null}
+  const businessDetails = (
+    <div className="receipt-business-details">
       <div className="receipt-business-name">{tenant?.businessName ?? 'Receipt'}</div>
       {outlet?.addressLine1 ? <div className="receipt-line">{outlet.addressLine1}</div> : null}
       {outlet?.city ? <div className="receipt-line">{outlet.city}</div> : null}
       {outlet?.phonePrimary ? (
         <div className="receipt-line">Tel: {outlet.phonePrimary}</div>
       ) : null}
+    </div>
+  );
+
+  return (
+    <div id="receipt-print">
+      <div className={`receipt-header receipt-header-${headerMode.toLowerCase()}`}>
+        {hasLogo ? <img src={outlet!.logoDataUrl!} alt="" className="receipt-logo" /> : null}
+        {businessDetails}
+      </div>
 
       <div className="receipt-divider" />
       <div className="receipt-line">Bill No: {bill.billNumber}</div>

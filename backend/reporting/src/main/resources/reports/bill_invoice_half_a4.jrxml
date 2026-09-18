@@ -2,15 +2,15 @@
 <jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
               xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
               xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
-              name="bill_invoice"
-              pageWidth="595"
-              pageHeight="842"
-              columnWidth="555"
-              leftMargin="20"
-              rightMargin="20"
-              topMargin="20"
-              bottomMargin="20"
-              uuid="a1b2c3d4-e5f6-7890-abcd-ef1234567890">
+              name="bill_invoice_half_a4"
+              pageWidth="420"
+              pageHeight="595"
+              columnWidth="390"
+              leftMargin="15"
+              rightMargin="15"
+              topMargin="15"
+              bottomMargin="15"
+              uuid="b2c3d4e5-f6a7-8901-bcde-f12345678901">
 
     <parameter name="BILL_NUMBER" class="java.lang.String"/>
     <parameter name="CUSTOMER_NAME" class="java.lang.String"/>
@@ -35,190 +35,206 @@
     <field name="netAmount" class="java.math.BigDecimal"/>
 
     <title>
-        <band height="212">
-            <!-- Logo, SIDE layout: right-aligned next to the business details. -->
+        <band height="190">
+            <!-- Logo, SIDE layout -->
             <image onErrorType="Blank">
-                <reportElement x="485" y="0" width="70" height="70">
+                <reportElement x="335" y="0" width="55" height="55">
                     <printWhenExpression><![CDATA[$P{LOGO_IMAGE} != null && !"CENTERED".equals($P{LOGO_LAYOUT})]]></printWhenExpression>
                 </reportElement>
                 <imageExpression><![CDATA[$P{LOGO_IMAGE}]]></imageExpression>
             </image>
-            <!-- Logo, CENTERED layout: centered above the business details. -->
+            <!-- Logo, CENTERED layout -->
             <image onErrorType="Blank">
-                <reportElement x="242" y="0" width="70" height="70">
+                <reportElement x="167" y="0" width="55" height="55">
                     <printWhenExpression><![CDATA[$P{LOGO_IMAGE} != null && "CENTERED".equals($P{LOGO_LAYOUT})]]></printWhenExpression>
                 </reportElement>
                 <imageExpression><![CDATA[$P{LOGO_IMAGE}]]></imageExpression>
             </image>
 
-            <!-- Business details, SIDE layout (or no logo... no, no-logo is its own block below):
-                 left-aligned, logo reserves the right 80pt. -->
+            <!-- Business details, SIDE layout: left-aligned, logo reserves the right 70pt. -->
             <textField isBlankWhenNull="true">
-                <reportElement x="0" y="0" width="475" height="22">
+                <reportElement x="0" y="0" width="320" height="20">
                     <printWhenExpression><![CDATA[$P{LOGO_IMAGE} != null && !"CENTERED".equals($P{LOGO_LAYOUT})]]></printWhenExpression>
                 </reportElement>
-                <textElement><font size="15" isBold="true"/></textElement>
+                <textElement><font size="13" isBold="true"/></textElement>
                 <textFieldExpression><![CDATA[$P{BUSINESS_NAME}]]></textFieldExpression>
             </textField>
             <textField isBlankWhenNull="true">
-                <reportElement x="0" y="22" width="475" height="16">
+                <reportElement x="0" y="20" width="320" height="14">
                     <printWhenExpression><![CDATA[$P{LOGO_IMAGE} != null && !"CENTERED".equals($P{LOGO_LAYOUT})]]></printWhenExpression>
                 </reportElement>
-                <textElement><font size="9"/></textElement>
+                <textElement><font size="8"/></textElement>
                 <textFieldExpression><![CDATA[$P{OUTLET_ADDRESS}]]></textFieldExpression>
             </textField>
             <textField isBlankWhenNull="true">
-                <reportElement x="0" y="38" width="475" height="16">
+                <reportElement x="0" y="34" width="320" height="14">
                     <printWhenExpression><![CDATA[$P{LOGO_IMAGE} != null && !"CENTERED".equals($P{LOGO_LAYOUT})]]></printWhenExpression>
                 </reportElement>
-                <textElement><font size="9"/></textElement>
+                <textElement><font size="8"/></textElement>
                 <textFieldExpression><![CDATA[$P{OUTLET_CONTACT}]]></textFieldExpression>
             </textField>
 
             <!-- Business details, CENTERED layout: centered, pushed below the logo. -->
             <textField isBlankWhenNull="true">
-                <reportElement x="0" y="76" width="555" height="22">
+                <reportElement x="0" y="61" width="390" height="20">
                     <printWhenExpression><![CDATA[$P{LOGO_IMAGE} != null && "CENTERED".equals($P{LOGO_LAYOUT})]]></printWhenExpression>
                 </reportElement>
-                <textElement textAlignment="Center"><font size="15" isBold="true"/></textElement>
+                <textElement textAlignment="Center"><font size="13" isBold="true"/></textElement>
                 <textFieldExpression><![CDATA[$P{BUSINESS_NAME}]]></textFieldExpression>
             </textField>
             <textField isBlankWhenNull="true">
-                <reportElement x="0" y="98" width="555" height="16">
+                <reportElement x="0" y="81" width="390" height="14">
                     <printWhenExpression><![CDATA[$P{LOGO_IMAGE} != null && "CENTERED".equals($P{LOGO_LAYOUT})]]></printWhenExpression>
                 </reportElement>
-                <textElement textAlignment="Center"><font size="9"/></textElement>
+                <textElement textAlignment="Center"><font size="8"/></textElement>
                 <textFieldExpression><![CDATA[$P{OUTLET_ADDRESS}]]></textFieldExpression>
             </textField>
             <textField isBlankWhenNull="true">
-                <reportElement x="0" y="114" width="555" height="16">
+                <reportElement x="0" y="95" width="390" height="14">
                     <printWhenExpression><![CDATA[$P{LOGO_IMAGE} != null && "CENTERED".equals($P{LOGO_LAYOUT})]]></printWhenExpression>
                 </reportElement>
-                <textElement textAlignment="Center"><font size="9"/></textElement>
+                <textElement textAlignment="Center"><font size="8"/></textElement>
                 <textFieldExpression><![CDATA[$P{OUTLET_CONTACT}]]></textFieldExpression>
             </textField>
 
-            <!-- Business details, no logo at all: centered, starts at the top. -->
+            <!-- Business details, no logo: centered, starts at the top. -->
             <textField isBlankWhenNull="true">
-                <reportElement x="0" y="0" width="555" height="22">
+                <reportElement x="0" y="0" width="390" height="20">
                     <printWhenExpression><![CDATA[$P{LOGO_IMAGE} == null]]></printWhenExpression>
                 </reportElement>
-                <textElement textAlignment="Center"><font size="15" isBold="true"/></textElement>
+                <textElement textAlignment="Center"><font size="13" isBold="true"/></textElement>
                 <textFieldExpression><![CDATA[$P{BUSINESS_NAME}]]></textFieldExpression>
             </textField>
             <textField isBlankWhenNull="true">
-                <reportElement x="0" y="22" width="555" height="16">
+                <reportElement x="0" y="20" width="390" height="14">
                     <printWhenExpression><![CDATA[$P{LOGO_IMAGE} == null]]></printWhenExpression>
                 </reportElement>
-                <textElement textAlignment="Center"><font size="9"/></textElement>
+                <textElement textAlignment="Center"><font size="8"/></textElement>
                 <textFieldExpression><![CDATA[$P{OUTLET_ADDRESS}]]></textFieldExpression>
             </textField>
             <textField isBlankWhenNull="true">
-                <reportElement x="0" y="38" width="555" height="16">
+                <reportElement x="0" y="34" width="390" height="14">
                     <printWhenExpression><![CDATA[$P{LOGO_IMAGE} == null]]></printWhenExpression>
                 </reportElement>
-                <textElement textAlignment="Center"><font size="9"/></textElement>
+                <textElement textAlignment="Center"><font size="8"/></textElement>
                 <textFieldExpression><![CDATA[$P{OUTLET_CONTACT}]]></textFieldExpression>
             </textField>
 
-            <!-- Invoice meta: same position regardless of logo layout, pushed down far
-                 enough to clear the tallest business-details variant (CENTERED). -->
+            <!-- Invoice meta: same position regardless of logo layout. -->
             <staticText>
-                <reportElement x="0" y="124" width="555" height="22"/>
-                <textElement><font size="14" isBold="true"/></textElement>
+                <reportElement x="0" y="115" width="390" height="18"/>
+                <textElement><font size="12" isBold="true"/></textElement>
                 <text><![CDATA[TAX INVOICE]]></text>
             </staticText>
             <textField>
-                <reportElement x="0" y="152" width="555" height="16"/>
+                <reportElement x="0" y="135" width="390" height="14"/>
+                <textElement><font size="9"/></textElement>
                 <textFieldExpression><![CDATA["Bill: " + $P{BILL_NUMBER}]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="0" y="170" width="555" height="16"/>
+                <reportElement x="0" y="151" width="390" height="14"/>
+                <textElement><font size="9"/></textElement>
                 <textFieldExpression><![CDATA["Customer: " + $P{CUSTOMER_NAME}]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="0" y="188" width="555" height="16"/>
+                <reportElement x="0" y="167" width="390" height="14"/>
+                <textElement><font size="9"/></textElement>
                 <textFieldExpression><![CDATA["Date: " + $P{BILLED_AT}]]></textFieldExpression>
             </textField>
         </band>
     </title>
 
     <columnHeader>
-        <band height="22">
+        <band height="18">
             <staticText>
-                <reportElement x="0" y="0" width="40" height="20"/>
+                <reportElement x="0" y="0" width="25" height="16"/>
+                <textElement><font size="8" isBold="true"/></textElement>
                 <text><![CDATA[#]]></text>
             </staticText>
             <staticText>
-                <reportElement x="40" y="0" width="80" height="20"/>
+                <reportElement x="25" y="0" width="55" height="16"/>
+                <textElement><font size="8" isBold="true"/></textElement>
                 <text><![CDATA[SKU]]></text>
             </staticText>
             <staticText>
-                <reportElement x="120" y="0" width="200" height="20"/>
+                <reportElement x="80" y="0" width="140" height="16"/>
+                <textElement><font size="8" isBold="true"/></textElement>
                 <text><![CDATA[Item]]></text>
             </staticText>
             <staticText>
-                <reportElement x="320" y="0" width="60" height="20"/>
+                <reportElement x="220" y="0" width="40" height="16"/>
+                <textElement><font size="8" isBold="true"/></textElement>
                 <text><![CDATA[Qty]]></text>
             </staticText>
             <staticText>
-                <reportElement x="380" y="0" width="80" height="20"/>
+                <reportElement x="260" y="0" width="60" height="16"/>
+                <textElement><font size="8" isBold="true"/></textElement>
                 <text><![CDATA[Price]]></text>
             </staticText>
             <staticText>
-                <reportElement x="460" y="0" width="95" height="20"/>
+                <reportElement x="320" y="0" width="70" height="16"/>
+                <textElement><font size="8" isBold="true"/></textElement>
                 <text><![CDATA[Amount]]></text>
             </staticText>
         </band>
     </columnHeader>
 
     <detail>
-        <band height="20">
+        <band height="16">
             <textField>
-                <reportElement x="0" y="0" width="40" height="18"/>
+                <reportElement x="0" y="0" width="25" height="14"/>
+                <textElement><font size="8"/></textElement>
                 <textFieldExpression><![CDATA[$F{lineNumber}]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="40" y="0" width="80" height="18"/>
+                <reportElement x="25" y="0" width="55" height="14"/>
+                <textElement><font size="8"/></textElement>
                 <textFieldExpression><![CDATA[$F{itemSku}]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="120" y="0" width="200" height="18"/>
+                <reportElement x="80" y="0" width="140" height="14"/>
+                <textElement><font size="8"/></textElement>
                 <textFieldExpression><![CDATA[$F{itemName}]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="320" y="0" width="60" height="18"/>
+                <reportElement x="220" y="0" width="40" height="14"/>
+                <textElement><font size="8"/></textElement>
                 <textFieldExpression><![CDATA[$F{quantity}]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="380" y="0" width="80" height="18"/>
+                <reportElement x="260" y="0" width="60" height="14"/>
+                <textElement><font size="8"/></textElement>
                 <textFieldExpression><![CDATA[$F{unitPrice}]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="460" y="0" width="95" height="18"/>
+                <reportElement x="320" y="0" width="70" height="14"/>
+                <textElement><font size="8"/></textElement>
                 <textFieldExpression><![CDATA[$F{netAmount}]]></textFieldExpression>
             </textField>
         </band>
     </detail>
 
     <summary>
-        <band height="90">
+        <band height="70">
             <textField>
-                <reportElement x="320" y="10" width="235" height="16"/>
+                <reportElement x="180" y="6" width="210" height="14"/>
+                <textElement><font size="8"/></textElement>
                 <textFieldExpression><![CDATA["Subtotal (" + $P{CURRENCY} + "): " + $P{SUBTOTAL}]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="320" y="28" width="235" height="16"/>
+                <reportElement x="180" y="21" width="210" height="14"/>
+                <textElement><font size="8"/></textElement>
                 <textFieldExpression><![CDATA["Discount: " + $P{DISCOUNT_TOTAL}]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="320" y="46" width="235" height="16"/>
+                <reportElement x="180" y="36" width="210" height="14"/>
+                <textElement><font size="8"/></textElement>
                 <textFieldExpression><![CDATA["Tax: " + $P{TAX_TOTAL}]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="320" y="64" width="235" height="16"/>
+                <reportElement x="180" y="51" width="210" height="16"/>
                 <textElement>
-                    <font isBold="true"/>
+                    <font size="10" isBold="true"/>
                 </textElement>
                 <textFieldExpression><![CDATA["Grand Total: " + $P{GRAND_TOTAL}]]></textFieldExpression>
             </textField>

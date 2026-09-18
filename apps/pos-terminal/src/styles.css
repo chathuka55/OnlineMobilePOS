@@ -36,15 +36,69 @@ body,
     font-size: 13px;
   }
 
-  .receipt-logo {
-    display: block;
-    max-height: 60px;
-    max-width: 100%;
+  /* Business identity block: logo + name/address/phone. Two arrangements -
+     SIDE (logo right of left-aligned details) and CENTERED (logo above
+     centered details) - chosen per-tenant in Settings > Receipt. With no
+     logo at all, Receipt.tsx always forces CENTERED (there's nothing to sit
+     beside), which this same rule set already handles correctly. */
+  .receipt-header {
+    margin-bottom: 4px;
+  }
+
+  .receipt-header-side {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .receipt-header-side .receipt-logo {
+    order: 2;
+    margin: 0;
+    flex-shrink: 0;
+  }
+
+  .receipt-header-side .receipt-business-details {
+    order: 1;
+    text-align: left;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .receipt-header-centered {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .receipt-header-centered .receipt-logo {
     margin: 0 auto 4px;
   }
 
-  .receipt-business-name {
+  .receipt-header-centered .receipt-business-details {
     text-align: center;
+  }
+
+  .receipt-logo {
+    display: block;
+    max-height: 60px;
+    max-width: 45%;
+    object-fit: contain;
+  }
+
+  body[data-print-format='thermal80'] .receipt-logo {
+    max-height: 36px;
+    max-width: 40%;
+  }
+
+  body[data-print-format='half-a4'] .receipt-logo,
+  body[data-print-format='a4'] .receipt-logo {
+    max-height: 70px;
+    max-width: 35%;
+  }
+
+  .receipt-business-name {
     font-weight: bold;
     font-size: 1.2em;
     margin-bottom: 2px;

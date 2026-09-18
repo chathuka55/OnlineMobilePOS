@@ -14,6 +14,8 @@ public final class SettingKeys {
     public static final String INVOICE_PAGE_SIZE = "print.invoice.pageSize";
     public static final String INVOICE_TERMS = "print.invoice.terms";
     public static final String RECEIPT_SHOW_LOGO = "print.receipt.showLogo";
+    /** "SIDE" (logo right of business details) or "CENTERED" (logo above, centered). */
+    public static final String RECEIPT_LOGO_LAYOUT = "print.receipt.logoLayout";
 
     // --- till security (was passcode_config.properties) ---
     public static final String LOCK_TIMEOUT_SECONDS = "security.lockTimeoutSeconds";
@@ -46,6 +48,7 @@ public final class SettingKeys {
                  LOW_STOCK_ALERT_ENABLED, REQUIRE_CUSTOMER_ON_CREDIT -> "true";
             case ALLOW_NEGATIVE_STOCK -> "false";
             case INVOICE_PAGE_SIZE -> "A4";
+            case RECEIPT_LOGO_LAYOUT -> "SIDE";
             // Matches the desktop default of a five-minute idle lock.
             case LOCK_TIMEOUT_SECONDS -> "300";
             // Coins below one rupee are no longer in circulation in Sri Lanka.

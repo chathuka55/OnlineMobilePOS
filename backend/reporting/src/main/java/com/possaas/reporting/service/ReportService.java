@@ -12,9 +12,11 @@ import com.possaas.sales.domain.Bill;
 import com.possaas.sales.domain.BillLine;
 import com.possaas.sales.repository.BillRepository;
 import com.possaas.tenancy.domain.Outlet;
+import com.possaas.tenancy.domain.SettingKeys;
 import com.possaas.tenancy.domain.Tenant;
 import com.possaas.tenancy.repository.OutletRepository;
 import com.possaas.tenancy.repository.TenantRepository;
+import com.possaas.tenancy.service.SettingsService;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.math.BigDecimal;
@@ -46,15 +48,18 @@ public class ReportService {
     private final BillRepository billRepository;
     private final TenantRepository tenantRepository;
     private final OutletRepository outletRepository;
+    private final SettingsService settingsService;
 
     public ReportService(JdbcTemplate jdbcTemplate,
                          BillRepository billRepository,
                          TenantRepository tenantRepository,
-                         OutletRepository outletRepository) {
+                         OutletRepository outletRepository,
+                         SettingsService settingsService) {
         this.jdbcTemplate = jdbcTemplate;
         this.billRepository = billRepository;
         this.tenantRepository = tenantRepository;
         this.outletRepository = outletRepository;
+        this.settingsService = settingsService;
     }
 
     @Transactional(readOnly = true)
@@ -194,8 +199,9 @@ public class ReportService {
                 tenantId, limit);
     }
 
+    /** "A4" (default) or "HALF_A4". Anything else falls back to A4. */
     @Transactional(readOnly = true)
-    public byte[] generateBillInvoicePdf(UUID billId) {
+    public byte[] generateBillInvoicePdf(UUID billId, String size) {
         Bill bill = billRepository.findByIdWithLines(billId)
                 .orElseThrow(() -> ApiException.notFound("Bill", billId));
 
@@ -221,6 +227,9 @@ public class ReportService {
             lines.add(empty);
         }
 
+        Outlet outlet = bill.getOutletId() == null ? null
+                : outletRepository.findById(bill.getOutletId()).orElse(null);
+
         Map<String, Object> params = new HashMap<>();
         params.put("BILL_NUMBER", bill.getBillNumber());
         params.put("CUSTOMER_NAME", bill.getCustomerName());
@@ -232,10 +241,17 @@ public class ReportService {
         params.put("BILLED_AT", bill.getBilledAt() == null ? "" : bill.getBilledAt().toString());
         params.put("BUSINESS_NAME", tenantRepository.findById(TenantContext.requireTenantId())
                 .map(Tenant::getBusinessName).orElse(""));
-        params.put("LOGO_IMAGE", logoStream(bill.getOutletId()));
+        params.put("OUTLET_ADDRESS", outletAddress(outlet));
+        params.put("OUTLET_CONTACT", outletContact(outlet));
+        params.put("LOGO_IMAGE", logoStream(outlet));
+        params.put("LOGO_LAYOUT", settingsService.getString(SettingKeys.RECEIPT_LOGO_LAYOUT, "SIDE"));
 
-        try (InputStream template = new ClassPathResource("reports/bill_invoice.jrxml").getInputStream()) {
-            JasperReport report = JasperCompileManager.compileReport(template);
+        String template = "HALF_A4".equalsIgnoreCase(size)
+                ? "reports/bill_invoice_half_a4.jrxml"
+                : "reports/bill_invoice.jrxml";
+
+        try (InputStream templateStream = new ClassPathResource(template).getInputStream()) {
+            JasperReport report = JasperCompileManager.compileReport(templateStream);
             JasperPrint print = JasperFillManager.fillReport(
                     report, params, new JRBeanCollectionDataSource(lines));
             return JasperExportManager.exportReportToPdf(print);
@@ -245,18 +261,47 @@ public class ReportService {
         }
     }
 
+    private String outletAddress(Outlet outlet) {
+        if (outlet == null) {
+            return null;
+        }
+        StringBuilder sb = new StringBuilder();
+        if (outlet.getAddressLine1() != null && !outlet.getAddressLine1().isBlank()) {
+            sb.append(outlet.getAddressLine1());
+        }
+        if (outlet.getCity() != null && !outlet.getCity().isBlank()) {
+            if (!sb.isEmpty()) {
+                sb.append(", ");
+            }
+            sb.append(outlet.getCity());
+        }
+        return sb.isEmpty() ? null : sb.toString();
+    }
+
+    private String outletContact(Outlet outlet) {
+        if (outlet == null) {
+            return null;
+        }
+        StringBuilder sb = new StringBuilder();
+        if (outlet.getPhonePrimary() != null && !outlet.getPhonePrimary().isBlank()) {
+            sb.append("Tel: ").append(outlet.getPhonePrimary());
+        }
+        if (outlet.getEmail() != null && !outlet.getEmail().isBlank()) {
+            if (!sb.isEmpty()) {
+                sb.append("   ");
+            }
+            sb.append(outlet.getEmail());
+        }
+        return sb.isEmpty() ? null : sb.toString();
+    }
+
     /**
      * Decodes an outlet's {@code data:image/...;base64,...} logo into raw bytes for
      * Jasper's image element. Returns null (not an error) when there's no outlet or
      * no logo set - the jrxml's onErrorType="Blank" then just omits the image.
      */
-    private InputStream logoStream(UUID outletId) {
-        if (outletId == null) {
-            return null;
-        }
-        String dataUrl = outletRepository.findById(outletId)
-                .map(Outlet::getLogoDataUrl)
-                .orElse(null);
+    private InputStream logoStream(Outlet outlet) {
+        String dataUrl = outlet == null ? null : outlet.getLogoDataUrl();
         if (dataUrl == null) {
             return null;
         }

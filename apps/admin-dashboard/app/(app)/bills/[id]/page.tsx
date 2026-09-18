@@ -34,7 +34,7 @@ import {
   TableRow,
   toast,
 } from '@possaas/ui';
-import { ArrowLeft, Undo2, Ban } from 'lucide-react';
+import { ArrowLeft, Undo2, Ban, Download } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
 import { api, money } from '@/lib/api';
 
@@ -48,6 +48,7 @@ export default function BillDetailPage() {
 
   const [voidOpen, setVoidOpen] = useState(false);
   const [voidReason, setVoidReason] = useState('');
+  const [downloadingSize, setDownloadingSize] = useState<'A4' | 'HALF_A4' | null>(null);
 
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundScope, setRefundScope] = useState<'FULL' | 'PARTIAL'>('FULL');
@@ -135,6 +136,28 @@ export default function BillDetailPage() {
   const canVoid = VOIDABLE.includes(bill.status);
   const canRefund = REFUNDABLE.includes(bill.status);
 
+  async function downloadInvoice(size: 'A4' | 'HALF_A4') {
+    setDownloadingSize(size);
+    try {
+      const res = await fetch(
+        `${api.baseUrl}/api/v1/reports/bills/${billId}/invoice.pdf?size=${size}`,
+        { headers: { Authorization: `Bearer ${api.tokens.getAccessToken()}` } },
+      );
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `invoice-${bill!.billNumber}-${size.toLowerCase()}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: 'Could not download invoice', variant: 'destructive' });
+    } finally {
+      setDownloadingSize(null);
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -142,6 +165,26 @@ export default function BillDetailPage() {
         description={`${bill.customerName || 'Walk-in'} · ${new Date(bill.billedAt).toLocaleString()}`}
         actions={
           <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              disabled={downloadingSize === 'A4'}
+              onClick={() => downloadInvoice('A4')}
+            >
+              {downloadingSize === 'A4' ? <Spinner size="sm" /> : <Download className="h-4 w-4" />}
+              Invoice (A4)
+            </Button>
+            <Button
+              variant="outline"
+              disabled={downloadingSize === 'HALF_A4'}
+              onClick={() => downloadInvoice('HALF_A4')}
+            >
+              {downloadingSize === 'HALF_A4' ? (
+                <Spinner size="sm" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              Invoice (Half A4)
+            </Button>
             {canRefund && (
               <Button
                 variant="outline"

@@ -55,8 +55,10 @@ public class ReportController {
     }
 
     @GetMapping("/bills/{billId}/invoice.pdf")
-    public ResponseEntity<byte[]> billInvoicePdf(@PathVariable UUID billId) {
-        byte[] pdf = reportService.generateBillInvoicePdf(billId);
+    public ResponseEntity<byte[]> billInvoicePdf(
+            @PathVariable UUID billId,
+            @RequestParam(required = false, defaultValue = "A4") String size) {
+        byte[] pdf = reportService.generateBillInvoicePdf(billId, size);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"bill-" + billId + ".pdf\"")

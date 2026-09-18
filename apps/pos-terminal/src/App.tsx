@@ -49,7 +49,7 @@ import {
 } from './lib/print';
 import { Keypad } from './components/Keypad';
 import { LoginGate } from './components/LoginGate';
-import { Receipt } from './components/Receipt';
+import { Receipt, type LogoLayout } from './components/Receipt';
 
 type LocalLine = {
   key: string;
@@ -108,6 +108,7 @@ export default function App() {
   const [lastBill, setLastBill] = useState<any>(null);
   const [shopTenant, setShopTenant] = useState<Tenant | null>(null);
   const [shopOutlet, setShopOutlet] = useState<Outlet | null>(null);
+  const [logoLayout, setLogoLayout] = useState<LogoLayout>('SIDE');
   const [receiptFormat, setReceiptFormat] = useState<ReceiptFormat>(() => getStoredReceiptFormat());
 
   useEffect(() => {
@@ -119,6 +120,12 @@ export default function App() {
     api.shop
       .outlets()
       .then((outlets) => setShopOutlet(outlets.find((o) => o.defaultOutlet) ?? outlets[0] ?? null))
+      .catch(() => {});
+    api
+      .get<Record<string, string>>('/api/v1/settings')
+      .then((settings) => {
+        if (settings['print.receipt.logoLayout'] === 'CENTERED') setLogoLayout('CENTERED');
+      })
       .catch(() => {});
   }, [user]);
 
@@ -450,7 +457,7 @@ export default function App() {
             </Button>
           </div>
         </div>
-        <Receipt bill={lastBill} tenant={shopTenant} outlet={shopOutlet} />
+        <Receipt bill={lastBill} tenant={shopTenant} outlet={shopOutlet} logoLayout={logoLayout} />
       </div>
     );
   }

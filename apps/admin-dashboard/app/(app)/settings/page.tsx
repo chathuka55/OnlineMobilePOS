@@ -77,6 +77,12 @@ export default function SettingsPage() {
     receiptFooter: '',
     currency: 'LKR',
     logoDataUrl: null as string | null,
+    logoLayout: 'SIDE' as 'SIDE' | 'CENTERED',
+  });
+
+  const { data: generalSettings } = useQuery({
+    queryKey: ['settings', 'general'],
+    queryFn: () => api.get<Record<string, string>>('/api/v1/settings'),
   });
 
   const [securityData, setSecurityData] = useState({
@@ -115,6 +121,16 @@ export default function SettingsPage() {
       }));
     }
   }, [outlet]);
+
+  useEffect(() => {
+    if (generalSettings) {
+      const layout = generalSettings['print.receipt.logoLayout'];
+      setReceiptData((prev) => ({
+        ...prev,
+        logoLayout: layout === 'CENTERED' ? 'CENTERED' : 'SIDE',
+      }));
+    }
+  }, [generalSettings]);
 
   const loading = loadingTenant || loadingOutlets;
 
@@ -172,10 +188,14 @@ export default function SettingsPage() {
           logoDataUrl: receiptData.logoDataUrl,
         });
       }
+      await api.put('/api/v1/settings', {
+        'print.receipt.logoLayout': receiptData.logoLayout,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenant'] });
       queryClient.invalidateQueries({ queryKey: ['outlets'] });
+      queryClient.invalidateQueries({ queryKey: ['settings', 'general'] });
       toast({ title: 'Receipt settings updated' });
     },
     onError: (err) => {
@@ -400,9 +420,31 @@ export default function SettingsPage() {
                     ) : null}
                   </div>
                   <p className="text-muted-foreground text-xs">
-                    Printed on receipts and the A4 invoice PDF. Under 250 KB.
+                    Printed on receipts and invoice PDFs (80mm, half A4, and A4). Under 250 KB.
                   </p>
                 </div>
+                {receiptData.logoDataUrl ? (
+                  <div className="space-y-2">
+                    <Label>Logo Position</Label>
+                    <Select
+                      value={receiptData.logoLayout}
+                      onValueChange={(v) =>
+                        setReceiptData({ ...receiptData, logoLayout: v as 'SIDE' | 'CENTERED' })
+                      }
+                    >
+                      <SelectTrigger className="max-w-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="SIDE">Side (logo right of shop details)</SelectItem>
+                        <SelectItem value="CENTERED">Centered (logo above shop details)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-muted-foreground text-xs">
+                      With no logo uploaded, shop details are always centered.
+                    </p>
+                  </div>
+                ) : null}
               </CardContent>
               <CardFooter>
                 <Button onClick={handleSaveReceipt} disabled={updateReceiptMutation.isPending}>

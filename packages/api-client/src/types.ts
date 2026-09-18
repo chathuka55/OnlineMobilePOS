@@ -1,5 +1,138 @@
 export type UUID = string;
 
+// --- Platform admin ---------------------------------------------------------
+
+export type TenantStatus = 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'SUSPENDED' | 'CANCELLED';
+export type SubscriptionStatus =
+  | 'TRIALING'
+  | 'ACTIVE'
+  | 'PAST_DUE'
+  | 'GRACE'
+  | 'SUSPENDED'
+  | 'CANCELLED'
+  | 'EXPIRED';
+
+export interface PlatformTenantSummary {
+  id: UUID;
+  slug: string;
+  businessName: string;
+  contactEmail?: string | null;
+  status: TenantStatus;
+  defaultCurrency: string;
+  createdAt: string;
+  suspendedAt?: string | null;
+  subscriptionStatus?: SubscriptionStatus | null;
+  planCode?: string | null;
+}
+
+export interface PlatformTenantDetail {
+  id: UUID;
+  slug: string;
+  businessName: string;
+  legalName?: string | null;
+  taxIdentifier?: string | null;
+  status: TenantStatus;
+  defaultCurrency: string;
+  defaultLocale: string;
+  timeZone: string;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  onboardedAt?: string | null;
+  suspendedAt?: string | null;
+  suspensionReason?: string | null;
+  createdAt: string;
+  subscriptionStatus?: SubscriptionStatus | null;
+  planCode?: string | null;
+  planName?: string | null;
+  trialEndsAt?: string | null;
+  currentPeriodEnd?: string | null;
+  gracePeriodEndsAt?: string | null;
+}
+
+export interface PlatformImpersonateResponse {
+  accessToken: string;
+  tokenType: string;
+  expiresIn: number;
+  expiresAt: string;
+  tenantId: UUID;
+  tenantSlug: string;
+  actingUserId: UUID;
+  impersonatorId: UUID;
+}
+
+export interface PlatformMetrics {
+  totalTenants: number;
+  activeTenants: number;
+  trialTenants: number;
+  suspendedTenants: number;
+  pastDueSubscriptions: number;
+  graceSubscriptions: number;
+  mrr: number | string;
+  arr: number | string;
+  churnRateStub: number;
+  currency: string;
+}
+
+export type FeatureCode =
+  | 'RETAIL_BILLING'
+  | 'INVENTORY'
+  | 'SERIAL_TRACKING'
+  | 'GRN'
+  | 'REPAIRS'
+  | 'WHOLESALE'
+  | 'QUOTATIONS'
+  | 'CREDIT_NOTES'
+  | 'MULTI_OUTLET'
+  | 'ADVANCED_REPORTS'
+  | 'JASPER_EXPORT'
+  | 'AUDIT_TRAIL'
+  | 'API_ACCESS'
+  | 'THERMAL_PRINTING'
+  | 'BARCODE_LABELS';
+
+export interface PlanFeature {
+  featureCode: FeatureCode;
+  enabled?: boolean;
+  limitValue?: number | null;
+}
+
+export interface Plan {
+  id: UUID;
+  code: string;
+  name: string;
+  description?: string | null;
+  currency: string;
+  priceMonthly: number | string;
+  priceYearly: number | string;
+  trialDays: number;
+  maxUsers?: number | null;
+  maxOutlets?: number | null;
+  maxItems?: number | null;
+  maxMonthlyBills?: number | null;
+  publicPlan: boolean;
+  active: boolean;
+  displayOrder: number;
+  features: PlanFeature[];
+}
+
+export interface UpsertPlanRequest {
+  code: string;
+  name: string;
+  description?: string;
+  currency?: string;
+  priceMonthly?: number;
+  priceYearly?: number;
+  trialDays?: number;
+  maxUsers?: number;
+  maxOutlets?: number;
+  maxItems?: number;
+  maxMonthlyBills?: number;
+  publicPlan?: boolean;
+  active?: boolean;
+  displayOrder?: number;
+  features?: PlanFeature[];
+}
+
 export interface Tenant {
   id: UUID;
   slug: string;

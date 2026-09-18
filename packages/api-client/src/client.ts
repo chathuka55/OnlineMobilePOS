@@ -19,13 +19,20 @@ import {
   type LoginRequest,
   type Outlet,
   type Page,
+  type Plan,
+  type PlatformImpersonateResponse,
+  type PlatformMetrics,
+  type PlatformTenantDetail,
+  type PlatformTenantSummary,
   type RefreshRequest,
   type Refund,
   type SignupRequest,
   type Supplier,
   type SupplierRequest,
   type Tenant,
+  type TenantStatus,
   type TokenResponse,
+  type UpsertPlanRequest,
   type User,
   type UUID,
 } from './types';
@@ -266,6 +273,46 @@ export function createPosApiClient(options: PosApiClientOptions = {}) {
       },
       create(payload: GrnCreateRequest) {
         return post<Grn>('/api/v1/grns', payload);
+      },
+    },
+
+    platform: {
+      tenants: {
+        list(params?: { q?: string; status?: TenantStatus; page?: number; size?: number }) {
+          return get<Page<PlatformTenantSummary>>('/api/v1/platform/tenants', params);
+        },
+        get(id: UUID) {
+          return get<PlatformTenantDetail>(`/api/v1/platform/tenants/${id}`);
+        },
+        suspend(id: UUID, reason?: string) {
+          return post<PlatformTenantDetail>(`/api/v1/platform/tenants/${id}/suspend`, { reason });
+        },
+        unsuspend(id: UUID) {
+          return post<PlatformTenantDetail>(`/api/v1/platform/tenants/${id}/unsuspend`);
+        },
+        impersonate(id: UUID) {
+          return post<PlatformImpersonateResponse>(`/api/v1/platform/tenants/${id}/impersonate`);
+        },
+      },
+      plans: {
+        list() {
+          return get<Plan[]>('/api/v1/platform/plans');
+        },
+        get(id: UUID) {
+          return get<Plan>(`/api/v1/platform/plans/${id}`);
+        },
+        create(payload: UpsertPlanRequest) {
+          return post<Plan>('/api/v1/platform/plans', payload);
+        },
+        update(id: UUID, payload: UpsertPlanRequest) {
+          return put<Plan>(`/api/v1/platform/plans/${id}`, payload);
+        },
+        delete(id: UUID) {
+          return del<void>(`/api/v1/platform/plans/${id}`);
+        },
+      },
+      metrics() {
+        return get<PlatformMetrics>('/api/v1/platform/metrics');
       },
     },
 

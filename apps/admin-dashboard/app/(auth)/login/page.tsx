@@ -27,13 +27,13 @@ export default function LoginPage() {
     const form = new FormData(e.currentTarget);
     setLoading(true);
     try {
-      await api.auth.login({
+      const { user } = await api.auth.login({
         emailOrUsername: String(form.get('email') ?? ''),
         password: String(form.get('password') ?? ''),
         tenantSlug: String(form.get('tenantSlug') ?? '') || undefined,
       });
       toast({ title: 'Welcome back', description: 'Signed in successfully.', variant: 'success' });
-      router.replace('/dashboard');
+      router.replace(user.platformAdmin ? '/platform' : '/dashboard');
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'Unable to sign in';
       toast({ title: 'Login failed', description: message, variant: 'destructive' });

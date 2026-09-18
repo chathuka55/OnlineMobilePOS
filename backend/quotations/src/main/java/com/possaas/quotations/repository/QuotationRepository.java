@@ -23,8 +23,8 @@ public interface QuotationRepository extends JpaRepository<Quotation, UUID> {
             SELECT q FROM Quotation q
              WHERE (:status IS NULL OR q.status = :status)
                AND (:customerId IS NULL OR q.customerId = :customerId)
-               AND (:q IS NULL OR LOWER(q.quotationNumber) LIKE LOWER(CONCAT('%', :q, '%'))
-                    OR LOWER(q.customerName) LIKE LOWER(CONCAT('%', :q, '%')))
+               AND (:q IS NULL OR LOWER(q.quotationNumber) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%'))
+                    OR LOWER(q.customerName) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')))
             """)
     Page<Quotation> search(@Param("q") String q,
                            @Param("status") QuotationStatus status,

@@ -25,8 +25,8 @@ public interface WholesaleInvoiceRepository extends JpaRepository<WholesaleInvoi
             SELECT i FROM WholesaleInvoice i
              WHERE (:status IS NULL OR i.status = :status)
                AND (:customerId IS NULL OR i.customerId = :customerId)
-               AND (:q IS NULL OR LOWER(i.invoiceNumber) LIKE LOWER(CONCAT('%', :q, '%'))
-                    OR LOWER(i.customerName) LIKE LOWER(CONCAT('%', :q, '%')))
+               AND (:q IS NULL OR LOWER(i.invoiceNumber) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%'))
+                    OR LOWER(i.customerName) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')))
             """)
     Page<WholesaleInvoice> search(@Param("q") String q,
                                   @Param("status") WholesaleInvoiceStatus status,

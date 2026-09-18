@@ -30,9 +30,9 @@ public interface TenantRepository extends JpaRepository<Tenant, UUID> {
             WHERE t.deletedAt IS NULL
               AND (:status IS NULL OR t.status = :status)
               AND (:search IS NULL
-                   OR LOWER(t.businessName) LIKE LOWER(CONCAT('%', :search, '%'))
-                   OR LOWER(t.slug) LIKE LOWER(CONCAT('%', :search, '%'))
-                   OR LOWER(t.contactEmail) LIKE LOWER(CONCAT('%', :search, '%')))
+                   OR LOWER(t.businessName) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))
+                   OR LOWER(t.slug) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))
+                   OR LOWER(t.contactEmail) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))
             """)
     Page<Tenant> search(@Param("search") String search,
                         @Param("status") TenantStatus status,

@@ -24,8 +24,8 @@ public interface BillRepository extends JpaRepository<Bill, UUID> {
                AND (:customerId IS NULL OR b.customerId = :customerId)
                AND (:from IS NULL OR b.billedAt >= :from)
                AND (:to IS NULL OR b.billedAt < :to)
-               AND (:q IS NULL OR LOWER(b.billNumber) LIKE LOWER(CONCAT('%', :q, '%'))
-                    OR LOWER(b.customerName) LIKE LOWER(CONCAT('%', :q, '%')))
+               AND (:q IS NULL OR LOWER(b.billNumber) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%'))
+                    OR LOWER(b.customerName) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')))
             """)
     Page<Bill> search(@Param("q") String q,
                       @Param("status") BillStatus status,

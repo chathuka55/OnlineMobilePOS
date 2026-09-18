@@ -25,9 +25,9 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, UUID> 
             SELECT r FROM RepairOrder r
              WHERE (:status IS NULL OR r.status = :status)
                AND (:customerId IS NULL OR r.customerId = :customerId)
-               AND (:q IS NULL OR LOWER(r.repairNumber) LIKE LOWER(CONCAT('%', :q, '%'))
-                    OR LOWER(r.customerName) LIKE LOWER(CONCAT('%', :q, '%'))
-                    OR LOWER(COALESCE(r.deviceSerial, '')) LIKE LOWER(CONCAT('%', :q, '%')))
+               AND (:q IS NULL OR LOWER(r.repairNumber) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%'))
+                    OR LOWER(r.customerName) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%'))
+                    OR LOWER(COALESCE(r.deviceSerial, '')) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')))
             """)
     Page<RepairOrder> search(@Param("q") String q,
                              @Param("status") RepairOrderStatus status,

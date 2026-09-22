@@ -424,7 +424,7 @@ export type BillStatus =
   | 'VOIDED'
   | 'REFUNDED'
   | 'PARTIALLY_REFUNDED';
-export type BillChannel = 'POS' | 'COUNTER' | 'ONLINE' | 'WHOLESALE';
+export type BillChannel = 'RETAIL' | 'REPAIR' | 'WHOLESALE' | 'ONLINE';
 export type PaymentMethod = 'CASH' | 'CARD' | 'BANK_TRANSFER' | 'CHEQUE' | 'CREDIT' | 'OTHER';
 
 export interface CartLine {

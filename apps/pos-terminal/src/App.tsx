@@ -345,7 +345,7 @@ export default function App() {
         cartId: id,
         customerId: customerId ?? undefined,
         customerName,
-        channel: 'POS',
+        channel: 'RETAIL',
         priceMode: 'RETAIL',
         payments: [
           {

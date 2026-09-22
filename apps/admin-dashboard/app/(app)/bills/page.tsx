@@ -127,7 +127,7 @@ export default function BillsPage() {
       const payload: CheckoutRequest = {
         customerName,
         customerPhone: customerPhone || undefined,
-        channel: 'POS',
+        channel: 'RETAIL',
         priceMode: 'RETAIL',
         lines: lines.map((l) => ({ itemId: l.itemId, quantity: l.quantity, unitPrice: l.unitPrice })),
         payments:

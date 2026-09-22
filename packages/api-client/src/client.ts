@@ -11,6 +11,8 @@ import {
   type CustomerRequest,
   type CustomerType,
   type DamagedItem,
+  type Serial,
+  type SerialStatus,
   type Item,
   type ItemRequest,
   type Category,
@@ -360,6 +362,12 @@ export function createPosApiClient(options: PosApiClientOptions = {}) {
       },
       damaged(supplierId?: UUID) {
         return get<DamagedItem[]>('/api/v1/items/damaged', supplierId ? { supplierId } : undefined);
+      },
+    },
+
+    serials: {
+      list(params?: { q?: string; itemId?: UUID; status?: SerialStatus; size?: number }) {
+        return get<Page<Serial> | Serial[]>('/api/v1/serials', params);
       },
     },
 

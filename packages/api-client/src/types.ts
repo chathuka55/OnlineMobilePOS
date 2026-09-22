@@ -336,6 +336,20 @@ export interface Item {
   barcodes: Barcode[];
 }
 
+export type SerialStatus = 'IN_STOCK' | 'RESERVED' | 'SOLD' | 'RETURNED' | 'DEFECTIVE' | 'WRITTEN_OFF';
+
+export interface Serial {
+  id: UUID;
+  itemId: UUID;
+  outletId?: UUID | null;
+  serialNumber: string;
+  status: SerialStatus;
+  costPrice?: number | string | null;
+  warrantyStartsOn?: string | null;
+  warrantyEndsOn?: string | null;
+  notes?: string | null;
+}
+
 export interface DamagedItem {
   itemId: UUID;
   sku: string;

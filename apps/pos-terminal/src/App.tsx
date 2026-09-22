@@ -5,6 +5,7 @@ import {
   type Customer,
   type Item,
   type PaymentMethod,
+  type Serial,
   type User,
 } from '@possaas/api-client';
 import {
@@ -66,6 +67,7 @@ import { Receipt, type LogoLayout } from './components/Receipt';
 import { CustomerSearch } from './components/CustomerSearch';
 import { RepairsPanel } from './components/RepairsPanel';
 import { WholesalePanel } from './components/WholesalePanel';
+import { SerialPicker } from './components/SerialPicker';
 
 type Mode = 'RETAIL' | 'REPAIRS' | 'WHOLESALE';
 
@@ -78,6 +80,9 @@ type LocalLine = {
   unitPrice: number;
   discountType?: 'NONE' | 'PERCENT' | 'AMOUNT';
   discountInput?: number;
+  hasSerialTracking?: boolean;
+  serialIds?: string[];
+  serialNumbers?: string[];
 };
 
 function getEffectivePrice(line: LocalLine) {
@@ -105,6 +110,7 @@ export default function App() {
   const [customerName, setCustomerName] = useState('Walk-in Customer');
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [payAmount, setPayAmount] = useState<number | null>(null);
+  const [serialPickerItem, setSerialPickerItem] = useState<Item | null>(null);
   const [heldCarts, setHeldCarts] = useState<Cart[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | 'CHEQUE'>('CASH');
   const [busy, setBusy] = useState(false);
@@ -216,6 +222,38 @@ export default function App() {
     });
   }
 
+  function handleSerialPicked(serial: Serial) {
+    const item = serialPickerItem;
+    if (!item) return;
+    setLines((prev) => [
+      ...prev,
+      {
+        key: `${item.id}-${serial.id}`,
+        itemId: item.id,
+        sku: item.sku,
+        name: item.name,
+        quantity: 1,
+        unitPrice: Number(item.retailPrice),
+        hasSerialTracking: true,
+        serialIds: [serial.id],
+        serialNumbers: [serial.serialNumber],
+      },
+    ]);
+    setSerialPickerItem(null);
+    void ensureCart()
+      .then((id) =>
+        api.carts.addLine(id, {
+          itemId: item.id,
+          quantity: 1,
+          unitPrice: item.retailPrice,
+          serialIds: [serial.id],
+        }),
+      )
+      .catch(() => {
+        /* keep local cart if API line fails */
+      });
+  }
+
   async function lookup(query: string) {
     const q = query.trim();
     if (!q) return;
@@ -231,6 +269,11 @@ export default function App() {
       }
       if (!item) {
         toast({ title: 'Not found', description: `No item for “${q}”`, variant: 'destructive' });
+        return;
+      }
+      if (item.hasSerialTracking) {
+        setSerialPickerItem(item);
+        setSearch('');
         return;
       }
       addItem(item);
@@ -340,9 +383,10 @@ export default function App() {
     }
     setBusy(true);
     try {
-      const id = await ensureCart();
+      // The bill is built from these local lines directly (not the held-cart's server
+      // copy, which only tracks the first-scan quantity) - that's the only way quantity
+      // edits, discounts, and serial numbers picked in this session actually get billed.
       const bill = await api.bills.checkout({
-        cartId: id,
         customerId: customerId ?? undefined,
         customerName,
         channel: 'RETAIL',
@@ -359,6 +403,7 @@ export default function App() {
           itemId: l.itemId,
           quantity: l.quantity,
           unitPrice: getEffectivePrice(l),
+          serialIds: l.serialIds,
         })),
       });
       const isPartial = amountNow < subtotal - 0.001;
@@ -671,6 +716,13 @@ export default function App() {
         </DialogContent>
       </Dialog>
 
+      <SerialPicker
+        item={serialPickerItem}
+        excludeIds={lines.flatMap((l) => l.serialIds ?? [])}
+        onPick={handleSerialPicked}
+        onClose={() => setSerialPickerItem(null)}
+      />
+
       {mode === 'REPAIRS' && (
         <div className="min-h-0 flex-1 overflow-y-auto bg-[#F5F7FA]">
           <RepairsPanel />
@@ -745,8 +797,26 @@ export default function App() {
                         <p className="text-muted-foreground text-xs">
                           {line.sku || line.itemId.slice(0, 8)} · {money(line.unitPrice)}
                         </p>
+                        {line.hasSerialTracking && line.serialNumbers?.[0] && (
+                          <p className="text-primary font-mono text-xs">
+                            SN: {line.serialNumbers[0]}
+                          </p>
+                        )}
                       </div>
                       <div className="flex items-center gap-3">
+                        {line.hasSerialTracking ? (
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="h-8 w-8"
+                            aria-label="Remove"
+                            onClick={() =>
+                              setLines((prev) => prev.filter((l) => l.key !== line.key))
+                            }
+                          >
+                            <Trash2Icon className="h-4 w-4" />
+                          </Button>
+                        ) : (
                         <div className="flex items-center gap-2">
                           <Button
                             size="icon"
@@ -757,7 +827,7 @@ export default function App() {
                                 prev
                                   .map((l) =>
                                     l.key === line.key
-                                      ? { ...l, quantity: Math.max(1, l.quantity - 1) }
+                                      ? { ...l, quantity: l.quantity - 1 }
                                       : l,
                                   )
                                   .filter((l) => l.quantity > 0),
@@ -784,6 +854,7 @@ export default function App() {
                             +
                           </Button>
                         </div>
+                        )}
                         <div className="w-24 text-right">
                           <p className="text-navy font-bold">
                             {money(line.quantity * getEffectivePrice(line))}

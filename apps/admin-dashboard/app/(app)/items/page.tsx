@@ -65,6 +65,9 @@ export default function ItemsPage() {
   const [damageTarget, setDamageTarget] = useState<Item | null>(null);
   const [damageQty, setDamageQty] = useState(1);
   const [damageReason, setDamageReason] = useState('');
+  const [stockTarget, setStockTarget] = useState<Item | null>(null);
+  const [stockDelta, setStockDelta] = useState(0);
+  const [stockReason, setStockReason] = useState('');
 
   const itemsQuery = useQuery({
     queryKey: ['items', q],
@@ -118,6 +121,24 @@ export default function ItemsPage() {
     onError: (err) => {
       toast({
         title: 'Could not mark as damaged',
+        description: err instanceof ApiError ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const stockMutation = useMutation({
+    mutationFn: () => api.items.adjustStock(stockTarget!.id, stockDelta, stockReason || undefined),
+    onSuccess: () => {
+      toast({ title: 'Stock updated', variant: 'success' });
+      setStockTarget(null);
+      setStockDelta(0);
+      setStockReason('');
+      void queryClient.invalidateQueries({ queryKey: ['items'] });
+    },
+    onError: (err) => {
+      toast({
+        title: 'Could not update stock',
         description: err instanceof ApiError ? err.message : 'Unknown error',
         variant: 'destructive',
       });
@@ -278,6 +299,18 @@ export default function ItemsPage() {
                         aria-label="Edit item"
                       >
                         <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setStockTarget(item);
+                          setStockDelta(0);
+                          setStockReason('');
+                        }}
+                        aria-label="Adjust stock"
+                      >
+                        <PackagePlus className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -488,6 +521,56 @@ export default function ItemsPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!stockTarget} onOpenChange={(o) => !o && setStockTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adjust Stock — {stockTarget?.name}</DialogTitle>
+            <DialogDescription>
+              Currently on hand: {Number(stockTarget?.quantityOnHand ?? 0)}. Enter a positive
+              number to add stock, or negative to remove it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="stockDelta">Adjustment</Label>
+              <Input
+                id="stockDelta"
+                type="number"
+                step="0.001"
+                value={stockDelta}
+                onChange={(e) => setStockDelta(Number(e.target.value) || 0)}
+                autoFocus
+              />
+              {stockTarget && (
+                <p className="text-muted-foreground text-xs">
+                  New on-hand quantity: {Number(stockTarget.quantityOnHand) + stockDelta}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="stockReason">Reason</Label>
+              <Input
+                id="stockReason"
+                value={stockReason}
+                onChange={(e) => setStockReason(e.target.value)}
+                placeholder="e.g. Physical stock count correction"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStockTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={stockMutation.isPending || stockDelta === 0}
+              onClick={() => stockMutation.mutate()}
+            >
+              {stockMutation.isPending ? 'Saving…' : 'Save Adjustment'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

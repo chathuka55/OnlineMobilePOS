@@ -7,6 +7,7 @@ import com.possaas.crm.api.dto.CustomerDtos.CustomerNoteResponse;
 import com.possaas.crm.api.dto.CustomerDtos.CustomerRequest;
 import com.possaas.crm.api.dto.CustomerDtos.CustomerResponse;
 import com.possaas.crm.api.dto.CustomerDtos.OutstandingAdjustmentRequest;
+import com.possaas.crm.domain.CustomerType;
 import com.possaas.crm.service.CustomerService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -42,9 +43,10 @@ public class CustomerController {
     public PageResponse<CustomerResponse> list(
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "true") boolean activeOnly,
+            @RequestParam(required = false) CustomerType type,
             @PageableDefault(size = 50, sort = "displayName", direction = Sort.Direction.ASC)
             Pageable pageable) {
-        return PageResponse.of(customerService.list(q, activeOnly, pageable));
+        return PageResponse.of(customerService.list(q, activeOnly, type, pageable));
     }
 
     @GetMapping("/{id}")

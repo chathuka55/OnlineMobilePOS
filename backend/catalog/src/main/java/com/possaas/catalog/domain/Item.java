@@ -66,6 +66,10 @@ public class Item extends TenantEntity {
     @Column(name = "quantity_reserved", nullable = false, precision = 14, scale = 3)
     private BigDecimal quantityReserved = Money.quantity(BigDecimal.ZERO);
 
+    /** Held aside, separate from quantity_on_hand - damaged stock is not sellable. */
+    @Column(name = "quantity_damaged", nullable = false, precision = 14, scale = 3)
+    private BigDecimal quantityDamaged = Money.quantity(BigDecimal.ZERO);
+
     @Column(name = "reorder_level", nullable = false, precision = 14, scale = 3)
     private BigDecimal reorderLevel = Money.quantity(BigDecimal.ZERO);
 
@@ -131,5 +135,10 @@ public class Item extends TenantEntity {
     /** Applies a signed quantity delta to the denormalised on-hand cache. */
     public void applyQuantityDelta(BigDecimal delta) {
         this.quantityOnHand = Money.quantity(this.quantityOnHand.add(Money.quantity(delta)));
+    }
+
+    /** Applies a signed quantity delta to the damaged-stock bucket. */
+    public void applyDamagedDelta(BigDecimal delta) {
+        this.quantityDamaged = Money.quantity(this.quantityDamaged.add(Money.quantity(delta)));
     }
 }

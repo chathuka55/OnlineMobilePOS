@@ -1,5 +1,12 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ApiError, type Cart, type Item, type PaymentMethod, type User } from '@possaas/api-client';
+import {
+  ApiError,
+  type Cart,
+  type Customer,
+  type Item,
+  type PaymentMethod,
+  type User,
+} from '@possaas/api-client';
 import {
   Badge,
   Button,
@@ -27,6 +34,9 @@ import {
   ScanBarcode,
   Settings,
   FileCheck2,
+  Wrench,
+  ShoppingBag,
+  ShoppingCart,
 } from 'lucide-react';
 import type { IconComponent } from '@possaas/ui';
 
@@ -39,6 +49,9 @@ const StoreIcon = Store as IconComponent;
 const ScanBarcodeIcon = ScanBarcode as IconComponent;
 const SettingsIcon = Settings as IconComponent;
 const FileCheck2Icon = FileCheck2 as IconComponent;
+const WrenchIcon = Wrench as IconComponent;
+const ShoppingBagIcon = ShoppingBag as IconComponent;
+const ShoppingCartIcon = ShoppingCart as IconComponent;
 import type { Outlet, Tenant } from '@possaas/api-client';
 import { api, money } from './lib/api';
 import {
@@ -50,6 +63,11 @@ import {
 import { Keypad } from './components/Keypad';
 import { LoginGate } from './components/LoginGate';
 import { Receipt, type LogoLayout } from './components/Receipt';
+import { CustomerSearch } from './components/CustomerSearch';
+import { RepairsPanel } from './components/RepairsPanel';
+import { WholesalePanel } from './components/WholesalePanel';
+
+type Mode = 'RETAIL' | 'REPAIRS' | 'WHOLESALE';
 
 type LocalLine = {
   key: string;
@@ -81,9 +99,12 @@ const PAYMENTS: Array<{ method: PaymentMethod | 'CHEQUE'; label: string; icon: I
 
 export default function App() {
   const [user, setUser] = useState<User | null>(() => api.auth.getStoredUser());
+  const [mode, setMode] = useState<Mode>('RETAIL');
   const [search, setSearch] = useState('');
   const [lines, setLines] = useState<LocalLine[]>([]);
   const [customerName, setCustomerName] = useState('Walk-in Customer');
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [payAmount, setPayAmount] = useState<number | null>(null);
   const [heldCarts, setHeldCarts] = useState<Cart[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | 'CHEQUE'>('CASH');
   const [busy, setBusy] = useState(false);
@@ -166,7 +187,7 @@ export default function App() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lines, cartId, paymentMethod, customerName, subtotal]);
+  }, [lines, cartId, paymentMethod, customerName, customerId, payAmount, subtotal]);
 
   async function ensureCart() {
     if (cartId) return cartId;
@@ -312,19 +333,25 @@ export default function App() {
       toast({ title: 'Nothing to pay', description: 'Scan an item first. (F4)' });
       return;
     }
+    const amountNow = Math.min(payAmount ?? subtotal, subtotal);
+    if (amountNow <= 0) {
+      toast({ title: 'Enter an amount to collect', variant: 'destructive' });
+      return;
+    }
     setBusy(true);
     try {
       const id = await ensureCart();
       const bill = await api.bills.checkout({
         cartId: id,
+        customerId: customerId ?? undefined,
         customerName,
         channel: 'POS',
         priceMode: 'RETAIL',
         payments: [
           {
             method: paymentMethod,
-            amount: subtotal,
-            tenderedAmount: paymentMethod === 'CASH' ? subtotal : undefined,
+            amount: amountNow,
+            tenderedAmount: paymentMethod === 'CASH' ? amountNow : undefined,
             reference: paymentMethod === 'CHEQUE' ? chequeNumber : undefined,
           },
         ],
@@ -334,15 +361,20 @@ export default function App() {
           unitPrice: getEffectivePrice(l),
         })),
       });
+      const isPartial = amountNow < subtotal - 0.001;
       toast({
-        title: 'Payment complete',
-        description: `${bill.billNumber} · ${money(bill.grandTotal)}`,
+        title: isPartial ? 'Partial payment recorded' : 'Payment complete',
+        description: isPartial
+          ? `${bill.billNumber} · paid ${money(amountNow)} · balance ${money(bill.balanceDue)}`
+          : `${bill.billNumber} · ${money(bill.grandTotal)}`,
         variant: 'success',
       });
       setLastBill(bill);
       setLines([]);
       setCartId(null);
       setCustomerName('Walk-in Customer');
+      setCustomerId(null);
+      setPayAmount(null);
       setChequeNumber('');
       setBankName('');
       setChequeDate('');
@@ -475,8 +507,30 @@ export default function App() {
           </div>
         </div>
 
+        <div className="flex items-center gap-1 rounded-lg bg-white/10 p-1">
+          {(
+            [
+              { key: 'RETAIL', label: 'Retail', icon: ShoppingCartIcon },
+              { key: 'REPAIRS', label: 'Repairs', icon: WrenchIcon },
+              { key: 'WHOLESALE', label: 'Wholesale', icon: ShoppingBagIcon },
+            ] as const
+          ).map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setMode(key)}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+                mode === key ? 'bg-primary text-navy' : 'text-white/70 hover:bg-white/10'
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {label}
+            </button>
+          ))}
+        </div>
+
         <div className="flex flex-1 items-center gap-2 overflow-x-auto px-2">
-          {heldCarts.length === 0 ? (
+          {mode !== 'RETAIL' ? null : heldCarts.length === 0 ? (
             <span className="text-xs text-white/40">No held carts</span>
           ) : (
             heldCarts.map((cart) => (
@@ -617,6 +671,18 @@ export default function App() {
         </DialogContent>
       </Dialog>
 
+      {mode === 'REPAIRS' && (
+        <div className="min-h-0 flex-1 overflow-y-auto bg-[#F5F7FA]">
+          <RepairsPanel />
+        </div>
+      )}
+      {mode === 'WHOLESALE' && (
+        <div className="min-h-0 flex-1 overflow-y-auto bg-[#F5F7FA]">
+          <WholesalePanel />
+        </div>
+      )}
+
+      {mode === 'RETAIL' && (
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-2">
         <section className="text-foreground flex min-h-0 flex-col bg-[#F5F7FA]">
           <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
@@ -624,11 +690,26 @@ export default function App() {
               <label className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
                 Customer
               </label>
-              <Input
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                className="mt-1"
-              />
+              <div className="relative mt-1">
+                <CustomerSearch
+                  placeholder="Walk-in Customer"
+                  onSelect={(c) => {
+                    setCustomerId(c.id);
+                    setCustomerName(c.displayName);
+                  }}
+                />
+              </div>
+              {!customerId && (
+                <Input
+                  value={customerName === 'Walk-in Customer' ? '' : customerName}
+                  onChange={(e) => {
+                    setCustomerId(null);
+                    setCustomerName(e.target.value || 'Walk-in Customer');
+                  }}
+                  placeholder="or type a walk-in name"
+                  className="mt-1"
+                />
+              )}
             </div>
             <Button
               variant="outline"
@@ -842,16 +923,37 @@ export default function App() {
             )}
           </div>
 
+          <div className="mt-4">
+            <label className="text-xs font-semibold uppercase tracking-[0.16em] text-white/50">
+              Amount to collect now (leave full for a normal sale)
+            </label>
+            <Input
+              type="number"
+              min="0"
+              max={subtotal}
+              step="0.01"
+              value={payAmount ?? subtotal}
+              onChange={(e) => setPayAmount(Math.min(Number(e.target.value) || 0, subtotal))}
+              className="mt-1 border-white/20 bg-white/10 text-white placeholder:text-white/40"
+            />
+            {payAmount != null && payAmount < subtotal && (
+              <p className="mt-1 text-xs text-amber-300">
+                Partial payment — remaining {money(subtotal - payAmount)} stays as balance due.
+              </p>
+            )}
+          </div>
+
           <Button
             size="xl"
             className="mt-auto h-16 w-full text-lg"
             disabled={busy || lines.length === 0}
             onClick={() => void pay()}
           >
-            Pay {money(subtotal)} (F4)
+            Pay {money(payAmount ?? subtotal)} (F4)
           </Button>
         </section>
       </div>
+      )}
     </div>
   );
 }

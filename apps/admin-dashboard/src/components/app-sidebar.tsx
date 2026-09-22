@@ -27,6 +27,7 @@ import {
   Hash,
   UserCog,
   Truck,
+  AlertTriangle,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 
@@ -36,6 +37,7 @@ const nav = [
   { href: '/bills', label: 'Billing / Bills', icon: Receipt },
   { href: '/items', label: 'Items', icon: Package },
   { href: '/suppliers', label: 'Suppliers', icon: Truck },
+  { href: '/damaged', label: 'Damaged Stock', icon: AlertTriangle },
   { href: '/repairs', label: 'Repairs', icon: Wrench },
   { href: '/wholesale', label: 'Wholesale', icon: ShoppingBag },
   { href: '/reports', label: 'Reports', icon: BarChart3 },

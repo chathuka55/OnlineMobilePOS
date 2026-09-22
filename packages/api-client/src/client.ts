@@ -9,6 +9,8 @@ import {
   type CreateCartRequest,
   type Customer,
   type CustomerRequest,
+  type CustomerType,
+  type DamagedItem,
   type Item,
   type ItemRequest,
   type Category,
@@ -326,7 +328,7 @@ export function createPosApiClient(options: PosApiClientOptions = {}) {
     },
 
     items: {
-      list(params?: { q?: string; page?: number; size?: number; active?: boolean }) {
+      list(params?: { q?: string; page?: number; size?: number; activeOnly?: boolean }) {
         return get<Page<Item> | Item[]>('/api/v1/items', params);
       },
       get(id: UUID) {
@@ -350,10 +352,25 @@ export function createPosApiClient(options: PosApiClientOptions = {}) {
       lowStock() {
         return get<Item[]>('/api/v1/items/low-stock');
       },
+      markDamaged(id: UUID, quantity: number | string, reason?: string) {
+        return post<Item>(`/api/v1/items/${id}/mark-damaged`, { quantity, reason });
+      },
+      restoreDamaged(id: UUID, quantity: number | string, toSellable: boolean, reason?: string) {
+        return post<Item>(`/api/v1/items/${id}/restore-damaged`, { quantity, toSellable, reason });
+      },
+      damaged(supplierId?: UUID) {
+        return get<DamagedItem[]>('/api/v1/items/damaged', supplierId ? { supplierId } : undefined);
+      },
     },
 
     customers: {
-      list(params?: { q?: string; page?: number; size?: number; active?: boolean }) {
+      list(params?: {
+        q?: string;
+        page?: number;
+        size?: number;
+        activeOnly?: boolean;
+        type?: CustomerType;
+      }) {
         return get<Page<Customer> | Customer[]>('/api/v1/customers', params);
       },
       get(id: UUID) {

@@ -1,6 +1,8 @@
 package com.possaas.crm.repository;
 
 import com.possaas.crm.domain.Customer;
+import com.possaas.crm.domain.CustomerType;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -19,6 +21,7 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
             select c from Customer c
              where c.deletedAt is null
                and (:activeOnly = false or c.active = true)
+               and c.customerType in :types
                and (
                     :q is null or :q = ''
                     or lower(c.displayName) like lower(concat('%', cast(:q as string), '%'))
@@ -28,5 +31,6 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
             """)
     Page<Customer> search(@Param("q") String q,
                           @Param("activeOnly") boolean activeOnly,
+                          @Param("types") List<CustomerType> types,
                           Pageable pageable);
 }

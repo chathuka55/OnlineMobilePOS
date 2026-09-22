@@ -1,7 +1,9 @@
 package com.possaas.catalog.api;
 
+import com.possaas.catalog.api.dto.CatalogDtos.DamagedStockRequest;
 import com.possaas.catalog.api.dto.CatalogDtos.ItemRequest;
 import com.possaas.catalog.api.dto.CatalogDtos.ItemResponse;
+import com.possaas.catalog.api.dto.CatalogDtos.RestoreDamagedRequest;
 import com.possaas.catalog.api.dto.CatalogDtos.StockAdjustRequest;
 import com.possaas.catalog.service.ItemService;
 import com.possaas.common.api.PageResponse;
@@ -87,5 +89,26 @@ public class ItemController {
     public ItemResponse adjustStock(@PathVariable UUID id,
                                     @Valid @RequestBody StockAdjustRequest request) {
         return itemService.adjustStock(id, request);
+    }
+
+    @PostMapping("/{id}/mark-damaged")
+    @PreAuthorize("hasAuthority('stock.adjust')")
+    public ItemResponse markDamaged(@PathVariable UUID id,
+                                    @Valid @RequestBody DamagedStockRequest request) {
+        return itemService.markDamaged(id, request);
+    }
+
+    @PostMapping("/{id}/restore-damaged")
+    @PreAuthorize("hasAuthority('stock.adjust')")
+    public ItemResponse restoreDamaged(@PathVariable UUID id,
+                                       @Valid @RequestBody RestoreDamagedRequest request) {
+        return itemService.restoreDamaged(id, request);
+    }
+
+    @GetMapping("/damaged")
+    @PreAuthorize("hasAuthority('item.view')")
+    public java.util.List<com.possaas.catalog.api.dto.CatalogDtos.DamagedItemResponse> damaged(
+            @RequestParam(required = false) UUID supplierId) {
+        return itemService.damagedItems(supplierId);
     }
 }

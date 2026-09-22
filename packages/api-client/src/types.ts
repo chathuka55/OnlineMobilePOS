@@ -323,6 +323,7 @@ export interface Item {
   minSellingPrice: number | string;
   quantityOnHand: number | string;
   quantityReserved: number | string;
+  quantityDamaged: number | string;
   reorderLevel: number | string;
   reorderQuantity: number | string;
   trackInventory: boolean;
@@ -333,6 +334,16 @@ export interface Item {
   warrantyLabel?: string | null;
   active: boolean;
   barcodes: Barcode[];
+}
+
+export interface DamagedItem {
+  itemId: UUID;
+  sku: string;
+  itemName: string;
+  supplierId?: UUID | null;
+  supplierName?: string | null;
+  quantityDamaged: number | string;
+  costPrice: number | string;
 }
 
 export interface ItemRequest {
@@ -359,7 +370,7 @@ export interface ItemRequest {
   barcodes?: Array<{ barcode: string; primaryBarcode?: boolean }>;
 }
 
-export type CustomerType = 'RETAIL' | 'WHOLESALE' | 'DEALER' | 'WALK_IN';
+export type CustomerType = 'RETAIL' | 'WHOLESALE' | 'BOTH';
 
 export interface Customer {
   id: UUID;

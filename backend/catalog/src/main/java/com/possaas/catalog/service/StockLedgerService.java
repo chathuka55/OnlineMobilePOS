@@ -200,6 +200,79 @@ public class StockLedgerService {
         return returnSerials(SoldDocumentType.BILL, billId);
     }
 
+    /**
+     * Moves stock out of sellable quantity_on_hand into the separate quantity_damaged
+     * bucket, so damage is tracked (and reportable per supplier via items.supplier_id)
+     * instead of just vanishing like a WRITE_OFF does.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public StockMovement markDamaged(UUID itemId, BigDecimal qty, String reason) {
+        BigDecimal quantity = Money.quantity(qty);
+        if (quantity.signum() <= 0) {
+            throw ApiException.validation("Damaged quantity must be positive");
+        }
+
+        Item item = itemRepository.findByIdForUpdate(itemId)
+                .orElseThrow(() -> ApiException.notFound("Item", itemId));
+        if (!item.isTrackInventory()) {
+            throw ApiException.validation("This item does not track inventory");
+        }
+        BigDecimal nextOnHand = Money.quantity(item.getQuantityOnHand().subtract(quantity));
+        if (nextOnHand.signum() < 0 && !item.isAllowNegativeStock()) {
+            throw ApiException.of(ErrorCode.INSUFFICIENT_STOCK, "Insufficient stock to mark as damaged")
+                    .with("itemId", itemId)
+                    .with("sku", item.getSku())
+                    .with("requested", quantity)
+                    .with("available", item.getQuantityOnHand());
+        }
+
+        item.applyQuantityDelta(quantity.negate());
+        item.applyDamagedDelta(quantity);
+        itemRepository.save(item);
+
+        StockMovement movement = StockMovement.of(
+                itemId, MovementType.DAMAGED, quantity.negate(), item.getQuantityOnHand(), null,
+                null, null, null, reason, null);
+        return stockMovementRepository.save(movement);
+    }
+
+    /** Reverses a damage entry - e.g. after a supplier replaces or credits the unit. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public StockMovement restoreDamaged(UUID itemId, BigDecimal qty, boolean toSellable, String reason) {
+        BigDecimal quantity = Money.quantity(qty);
+        if (quantity.signum() <= 0) {
+            throw ApiException.validation("Quantity must be positive");
+        }
+
+        Item item = itemRepository.findByIdForUpdate(itemId)
+                .orElseThrow(() -> ApiException.notFound("Item", itemId));
+        if (quantity.compareTo(item.getQuantityDamaged()) > 0) {
+            throw ApiException.validation("Quantity exceeds damaged stock on hand")
+                    .with("itemId", itemId)
+                    .with("requested", quantity)
+                    .with("damaged", item.getQuantityDamaged());
+        }
+
+        item.applyDamagedDelta(quantity.negate());
+        BigDecimal ledgerDelta;
+        if (toSellable) {
+            item.applyQuantityDelta(quantity);
+            ledgerDelta = quantity;
+        } else {
+            // Written off entirely (e.g. scrapped/disposed) - on-hand stays as-is.
+            ledgerDelta = BigDecimal.ZERO;
+        }
+        itemRepository.save(item);
+
+        if (ledgerDelta.signum() == 0) {
+            return null;
+        }
+        StockMovement movement = StockMovement.of(
+                itemId, MovementType.DAMAGED_RESTORED, ledgerDelta, item.getQuantityOnHand(), null,
+                null, null, null, reason, null);
+        return stockMovementRepository.save(movement);
+    }
+
     private StockMovement append(UUID itemId,
                                  MovementType type,
                                  BigDecimal quantityDelta,

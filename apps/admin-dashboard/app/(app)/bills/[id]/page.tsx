@@ -34,12 +34,13 @@ import {
   TableRow,
   toast,
 } from '@possaas/ui';
-import { ArrowLeft, Undo2, Ban, Download } from 'lucide-react';
+import { ArrowLeft, Undo2, Ban, Download, Wallet } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
 import { api, money } from '@/lib/api';
 
 const VOIDABLE = ['UNPAID', 'PARTIALLY_PAID', 'COMPLETED'];
 const REFUNDABLE = ['COMPLETED', 'PARTIALLY_REFUNDED'];
+const PAYABLE = ['UNPAID', 'PARTIALLY_PAID'];
 
 export default function BillDetailPage() {
   const params = useParams<{ id: string }>();
@@ -49,6 +50,10 @@ export default function BillDetailPage() {
   const [voidOpen, setVoidOpen] = useState(false);
   const [voidReason, setVoidReason] = useState('');
   const [downloadingSize, setDownloadingSize] = useState<'A4' | 'HALF_A4' | null>(null);
+
+  const [payOpen, setPayOpen] = useState(false);
+  const [payAmount, setPayAmount] = useState(0);
+  const [payMethod, setPayMethod] = useState<'CASH' | 'CARD' | 'BANK_TRANSFER' | 'CHEQUE'>('CASH');
 
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundScope, setRefundScope] = useState<'FULL' | 'PARTIAL'>('FULL');
@@ -74,6 +79,24 @@ export default function BillDetailPage() {
     onError: (err) => {
       toast({
         title: 'Could not void bill',
+        description: err instanceof ApiError ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const payMutation = useMutation({
+    mutationFn: () =>
+      api.post(`/api/v1/bills/${billId}/payments`, { method: payMethod, amount: payAmount }),
+    onSuccess: () => {
+      toast({ title: 'Payment collected', variant: 'success' });
+      setPayOpen(false);
+      setPayAmount(0);
+      void queryClient.invalidateQueries({ queryKey: ['bills', billId] });
+    },
+    onError: (err) => {
+      toast({
+        title: 'Could not collect payment',
         description: err instanceof ApiError ? err.message : 'Unknown error',
         variant: 'destructive',
       });
@@ -135,6 +158,7 @@ export default function BillDetailPage() {
 
   const canVoid = VOIDABLE.includes(bill.status);
   const canRefund = REFUNDABLE.includes(bill.status);
+  const canPay = PAYABLE.includes(bill.status) && Number(bill.balanceDue) > 0;
 
   async function downloadInvoice(size: 'A4' | 'HALF_A4') {
     setDownloadingSize(size);
@@ -185,6 +209,19 @@ export default function BillDetailPage() {
               )}
               Invoice (Half A4)
             </Button>
+            {canPay && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setPayAmount(Number(bill.balanceDue));
+                  setPayMethod('CASH');
+                  setPayOpen(true);
+                }}
+              >
+                <Wallet className="h-4 w-4" />
+                Collect Payment
+              </Button>
+            )}
             {canRefund && (
               <Button
                 variant="outline"
@@ -293,6 +330,60 @@ export default function BillDetailPage() {
           </Card>
         </div>
       </div>
+
+      {/* COLLECT PAYMENT DIALOG */}
+      <Dialog open={payOpen} onOpenChange={setPayOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Collect Payment — {bill.billNumber}</DialogTitle>
+            <DialogDescription>
+              Balance due is {money(bill.balanceDue)}. You can collect the full amount or a
+              partial top-up.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Method</Label>
+              <Select value={payMethod} onValueChange={(v) => setPayMethod(v as typeof payMethod)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CASH">Cash</SelectItem>
+                  <SelectItem value="CARD">Card</SelectItem>
+                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                  <SelectItem value="CHEQUE">Cheque</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="payAmount">Amount</Label>
+              <Input
+                id="payAmount"
+                type="number"
+                min="0.01"
+                max={Number(bill.balanceDue)}
+                step="0.01"
+                value={payAmount}
+                onChange={(e) =>
+                  setPayAmount(Math.min(Number(e.target.value) || 0, Number(bill.balanceDue)))
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setPayOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={payMutation.isPending || payAmount <= 0}
+              onClick={() => payMutation.mutate()}
+            >
+              {payMutation.isPending ? 'Collecting…' : 'Collect Payment'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* VOID DIALOG */}
       <Dialog open={voidOpen} onOpenChange={setVoidOpen}>

@@ -49,4 +49,21 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
             order by i.name asc
             """)
     Page<Item> findLowStock(Pageable pageable);
+
+    @Query("""
+            select i from Item i
+             where i.deletedAt is null
+               and i.quantityDamaged > 0
+            order by i.quantityDamaged desc
+            """)
+    java.util.List<Item> findAllDamaged();
+
+    @Query("""
+            select i from Item i
+             where i.deletedAt is null
+               and i.quantityDamaged > 0
+               and i.supplierId = :supplierId
+            order by i.quantityDamaged desc
+            """)
+    java.util.List<Item> findDamagedBySupplier(@Param("supplierId") UUID supplierId);
 }

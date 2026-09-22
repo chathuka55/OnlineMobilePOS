@@ -1,8 +1,10 @@
 package com.possaas.catalog.service;
 
 import com.possaas.catalog.api.dto.CatalogDtos.BarcodeRequest;
+import com.possaas.catalog.api.dto.CatalogDtos.DamagedStockRequest;
 import com.possaas.catalog.api.dto.CatalogDtos.ItemRequest;
 import com.possaas.catalog.api.dto.CatalogDtos.ItemResponse;
+import com.possaas.catalog.api.dto.CatalogDtos.RestoreDamagedRequest;
 import com.possaas.catalog.api.dto.CatalogDtos.StockAdjustRequest;
 import com.possaas.catalog.domain.Item;
 import com.possaas.catalog.domain.ItemBarcode;
@@ -117,6 +119,43 @@ public class ItemService {
         require(id);
         stockLedgerService.adjust(id, request.delta(), request.reason());
         return toResponse(require(id));
+    }
+
+    @Transactional
+    public ItemResponse markDamaged(UUID id, DamagedStockRequest request) {
+        require(id);
+        stockLedgerService.markDamaged(id, request.quantity(), request.reason());
+        return toResponse(require(id));
+    }
+
+    @Transactional
+    public ItemResponse restoreDamaged(UUID id, RestoreDamagedRequest request) {
+        require(id);
+        stockLedgerService.restoreDamaged(id, request.quantity(), request.toSellable(), request.reason());
+        return toResponse(require(id));
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.possaas.catalog.api.dto.CatalogDtos.DamagedItemResponse> damagedItems(UUID supplierId) {
+        List<Item> items = supplierId == null
+                ? itemRepository.findAllDamaged()
+                : itemRepository.findDamagedBySupplier(supplierId);
+        java.util.Map<UUID, String> supplierNames = supplierRepository
+                .findAllById(items.stream().map(Item::getSupplierId).filter(java.util.Objects::nonNull).distinct().toList())
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        com.possaas.catalog.domain.Supplier::getId,
+                        com.possaas.catalog.domain.Supplier::getName));
+        return items.stream()
+                .map(i -> new com.possaas.catalog.api.dto.CatalogDtos.DamagedItemResponse(
+                        i.getId(),
+                        i.getSku(),
+                        i.getName(),
+                        i.getSupplierId(),
+                        i.getSupplierId() == null ? null : supplierNames.get(i.getSupplierId()),
+                        i.getQuantityDamaged(),
+                        i.getCostPrice()))
+                .toList();
     }
 
     private ItemResponse toResponse(Item item) {

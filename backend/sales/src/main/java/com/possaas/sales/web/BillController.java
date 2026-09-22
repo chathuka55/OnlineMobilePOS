@@ -5,6 +5,7 @@ import com.possaas.sales.domain.BillStatus;
 import com.possaas.sales.dto.SalesDtos.BillResponse;
 import com.possaas.sales.dto.SalesDtos.BillSummaryResponse;
 import com.possaas.sales.dto.SalesDtos.CheckoutRequest;
+import com.possaas.sales.dto.SalesDtos.PaymentRequest;
 import com.possaas.sales.dto.SalesDtos.VoidBillRequest;
 import com.possaas.sales.service.BillService;
 import com.possaas.sales.service.CheckoutService;
@@ -57,6 +58,12 @@ public class BillController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
             @PageableDefault(size = 50, sort = "billedAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return billService.search(q, status, customerId, from, to, pageable);
+    }
+
+    @PostMapping("/{billId}/payments")
+    public BillResponse collectPayment(@PathVariable UUID billId,
+                                       @Valid @RequestBody PaymentRequest request) {
+        return billService.collectPayment(billId, request);
     }
 
     @PostMapping("/{billId}/void")

@@ -15,5 +15,7 @@ public enum MovementType {
     OPENING_BALANCE,
     TRANSFER_IN,
     TRANSFER_OUT,
-    WRITE_OFF
+    WRITE_OFF,
+    DAMAGED,
+    DAMAGED_RESTORED
 }

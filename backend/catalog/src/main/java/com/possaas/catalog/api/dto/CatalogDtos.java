@@ -169,6 +169,7 @@ public final class CatalogDtos {
             BigDecimal minSellingPrice,
             BigDecimal quantityOnHand,
             BigDecimal quantityReserved,
+            BigDecimal quantityDamaged,
             BigDecimal reorderLevel,
             BigDecimal reorderQuantity,
             boolean trackInventory,
@@ -196,6 +197,7 @@ public final class CatalogDtos {
                     item.getMinSellingPrice(),
                     item.getQuantityOnHand(),
                     item.getQuantityReserved(),
+                    item.getQuantityDamaged(),
                     item.getReorderLevel(),
                     item.getReorderQuantity(),
                     item.isTrackInventory(),
@@ -212,6 +214,30 @@ public final class CatalogDtos {
     public record StockAdjustRequest(
             @NotNull BigDecimal delta,
             @Size(max = 240) String reason
+    ) {
+    }
+
+    public record DamagedStockRequest(
+            @NotNull @DecimalMin("0.001") BigDecimal quantity,
+            @Size(max = 240) String reason
+    ) {
+    }
+
+    public record RestoreDamagedRequest(
+            @NotNull @DecimalMin("0.001") BigDecimal quantity,
+            boolean toSellable,
+            @Size(max = 240) String reason
+    ) {
+    }
+
+    public record DamagedItemResponse(
+            UUID itemId,
+            String sku,
+            String itemName,
+            UUID supplierId,
+            String supplierName,
+            BigDecimal quantityDamaged,
+            BigDecimal costPrice
     ) {
     }
 

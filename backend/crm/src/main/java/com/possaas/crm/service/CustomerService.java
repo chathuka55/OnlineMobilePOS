@@ -14,6 +14,7 @@ import com.possaas.crm.domain.CustomerNote;
 import com.possaas.crm.domain.CustomerType;
 import com.possaas.crm.repository.CustomerNoteRepository;
 import com.possaas.crm.repository.CustomerRepository;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -35,7 +36,21 @@ public class CustomerService {
 
     @Transactional(readOnly = true)
     public Page<CustomerResponse> list(String q, boolean activeOnly, Pageable pageable) {
-        return customerRepository.search(blankToNull(q), activeOnly, pageable)
+        return list(q, activeOnly, null, pageable);
+    }
+
+    /**
+     * @param type when WHOLESALE, also matches BOTH (a customer who buys both ways is still a
+     *             valid wholesale customer); when RETAIL, also matches BOTH; null means no filter.
+     */
+    @Transactional(readOnly = true)
+    public Page<CustomerResponse> list(String q, boolean activeOnly, CustomerType type, Pageable pageable) {
+        List<CustomerType> types = type == null
+                ? Arrays.asList(CustomerType.values())
+                : (type == CustomerType.BOTH
+                        ? List.of(CustomerType.BOTH)
+                        : List.of(type, CustomerType.BOTH));
+        return customerRepository.search(blankToNull(q), activeOnly, types, pageable)
                 .map(CustomerResponse::from);
     }
 

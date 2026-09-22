@@ -29,7 +29,7 @@ import {
   TableRow,
   toast,
 } from '@possaas/ui';
-import { PackagePlus, Pencil, Search } from 'lucide-react';
+import { PackagePlus, Pencil, Search, AlertTriangle } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
 import { api, asList, money } from '@/lib/api';
 
@@ -61,6 +61,9 @@ export default function ItemsPage() {
   const [editing, setEditing] = useState<Item | null>(null);
   const [form, setForm] = useState<ItemRequest>(emptyForm);
   const [barcode, setBarcode] = useState('');
+  const [damageTarget, setDamageTarget] = useState<Item | null>(null);
+  const [damageQty, setDamageQty] = useState(1);
+  const [damageReason, setDamageReason] = useState('');
 
   const itemsQuery = useQuery({
     queryKey: ['items', q],
@@ -100,6 +103,25 @@ export default function ItemsPage() {
     queryFn: () => api.suppliers.list({ size: 200 }),
   });
   const suppliers = useMemo(() => asList(suppliersQuery.data), [suppliersQuery.data]);
+
+  const damageMutation = useMutation({
+    mutationFn: () =>
+      api.items.markDamaged(damageTarget!.id, damageQty, damageReason || undefined),
+    onSuccess: () => {
+      toast({ title: 'Marked as damaged', variant: 'success' });
+      setDamageTarget(null);
+      setDamageQty(1);
+      setDamageReason('');
+      void queryClient.invalidateQueries({ queryKey: ['items'] });
+    },
+    onError: (err) => {
+      toast({
+        title: 'Could not mark as damaged',
+        description: err instanceof ApiError ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    },
+  });
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -222,6 +244,7 @@ export default function ItemsPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Retail</TableHead>
                 <TableHead>On hand</TableHead>
+                <TableHead>Damaged</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[80px]" />
               </TableRow>
@@ -234,19 +257,41 @@ export default function ItemsPage() {
                   <TableCell>{money(item.retailPrice)}</TableCell>
                   <TableCell>{Number(item.quantityOnHand)}</TableCell>
                   <TableCell>
+                    {Number(item.quantityDamaged) > 0 ? (
+                      <Badge variant="destructive">{Number(item.quantityDamaged)}</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     <Badge variant={item.active ? 'success' : 'secondary'}>
                       {item.active ? 'Active' : 'Inactive'}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openEdit(item)}
-                      aria-label="Edit item"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEdit(item)}
+                        aria-label="Edit item"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive"
+                        onClick={() => {
+                          setDamageTarget(item);
+                          setDamageQty(1);
+                          setDamageReason('');
+                        }}
+                        aria-label="Mark damaged"
+                      >
+                        <AlertTriangle className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -429,6 +474,57 @@ export default function ItemsPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!damageTarget} onOpenChange={(o) => !o && setDamageTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mark Damaged — {damageTarget?.name}</DialogTitle>
+            <DialogDescription>
+              Moves stock out of sellable quantity into a separate damaged bucket. On hand:{' '}
+              {Number(damageTarget?.quantityOnHand ?? 0)}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="damageQty">Quantity</Label>
+              <Input
+                id="damageQty"
+                type="number"
+                min="0.001"
+                max={Number(damageTarget?.quantityOnHand ?? 0)}
+                step="0.001"
+                value={damageQty}
+                onChange={(e) => setDamageQty(Number(e.target.value) || 0)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="damageReason">Reason</Label>
+              <Input
+                id="damageReason"
+                value={damageReason}
+                onChange={(e) => setDamageReason(e.target.value)}
+                placeholder="e.g. Dropped during unpacking"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDamageTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={
+                damageMutation.isPending ||
+                damageQty <= 0 ||
+                damageQty > Number(damageTarget?.quantityOnHand ?? 0)
+              }
+              onClick={() => damageMutation.mutate()}
+            >
+              {damageMutation.isPending ? 'Saving…' : 'Mark Damaged'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

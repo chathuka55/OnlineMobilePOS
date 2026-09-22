@@ -218,8 +218,7 @@ export default function CustomersPage() {
                 <SelectContent>
                   <SelectItem value="RETAIL">Retail</SelectItem>
                   <SelectItem value="WHOLESALE">Wholesale</SelectItem>
-                  <SelectItem value="DEALER">Dealer</SelectItem>
-                  <SelectItem value="WALK_IN">Walk-in</SelectItem>
+                  <SelectItem value="BOTH">Both</SelectItem>
                 </SelectContent>
               </Select>
             </div>

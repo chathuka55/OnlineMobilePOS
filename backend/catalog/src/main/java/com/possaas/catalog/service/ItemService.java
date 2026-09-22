@@ -88,6 +88,11 @@ public class ItemService {
         if (request.barcodes() != null) {
             replaceBarcodes(item.getId(), request.barcodes());
         }
+        if (item.isTrackInventory() && request.initialQuantity() != null
+                && request.initialQuantity().signum() > 0) {
+            stockLedgerService.openingBalance(item.getId(), request.initialQuantity());
+            item = require(item.getId());
+        }
         return toResponse(item);
     }
 

@@ -360,6 +360,8 @@ export interface ItemRequest {
   minSellingPrice?: number | string;
   reorderLevel?: number | string;
   reorderQuantity?: number | string;
+  /** Opening stock count. Only applied when creating a new item. */
+  initialQuantity?: number | string;
   trackInventory?: boolean;
   hasSerialTracking?: boolean;
   allowNegativeStock?: boolean;

@@ -40,6 +40,13 @@ public class StockLedgerService {
         this.itemSerialRepository = itemSerialRepository;
     }
 
+    /** Sets the starting stock count for a newly created item. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public StockMovement openingBalance(UUID itemId, BigDecimal qty) {
+        return append(itemId, MovementType.OPENING_BALANCE, Money.quantity(qty), null,
+                null, null, null, null, null);
+    }
+
     @Transactional(propagation = Propagation.MANDATORY)
     public StockMovement receiveGrn(UUID itemId,
                                     BigDecimal qty,

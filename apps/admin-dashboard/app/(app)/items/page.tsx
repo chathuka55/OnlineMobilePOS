@@ -43,6 +43,7 @@ const emptyForm: ItemRequest = {
   wholesalePrice: 0,
   unitOfMeasure: 'EA',
   reorderLevel: 0,
+  initialQuantity: 0,
   trackInventory: true,
   hasSerialTracking: false,
   oldStock: false,
@@ -370,6 +371,19 @@ export default function ItemsPage() {
                 onChange={(e) => setForm((f) => ({ ...f, reorderLevel: e.target.value }))}
               />
             </div>
+            {!editing && (
+              <div className="space-y-2">
+                <Label htmlFor="initialQuantity">Opening stock quantity</Label>
+                <Input
+                  id="initialQuantity"
+                  type="number"
+                  min="0"
+                  step="0.001"
+                  value={form.initialQuantity ?? 0}
+                  onChange={(e) => setForm((f) => ({ ...f, initialQuantity: e.target.value }))}
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Category</Label>
               <div className="flex gap-2">

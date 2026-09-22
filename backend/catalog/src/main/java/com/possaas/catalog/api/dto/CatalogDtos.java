@@ -137,6 +137,7 @@ public final class CatalogDtos {
             BigDecimal minSellingPrice,
             BigDecimal reorderLevel,
             BigDecimal reorderQuantity,
+            BigDecimal initialQuantity,
             Boolean trackInventory,
             Boolean hasSerialTracking,
             Boolean allowNegativeStock,

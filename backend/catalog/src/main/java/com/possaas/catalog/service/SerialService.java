@@ -3,16 +3,22 @@ package com.possaas.catalog.service;
 import com.possaas.catalog.api.dto.CatalogDtos.SerialEventResponse;
 import com.possaas.catalog.api.dto.CatalogDtos.SerialLifecycleResponse;
 import com.possaas.catalog.api.dto.CatalogDtos.SerialResponse;
+import com.possaas.catalog.domain.GoodsReceivedNote;
 import com.possaas.catalog.domain.Imei;
 import com.possaas.catalog.domain.Item;
 import com.possaas.catalog.domain.ItemSerial;
 import com.possaas.catalog.domain.SerialStatus;
 import com.possaas.catalog.domain.SoldDocumentType;
+import com.possaas.catalog.domain.StockMovement;
+import com.possaas.catalog.repository.GoodsReceivedNoteRepository;
 import com.possaas.catalog.repository.ItemRepository;
 import com.possaas.catalog.repository.ItemSerialRepository;
 import com.possaas.catalog.repository.StockMovementRepository;
 import com.possaas.common.error.ApiException;
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,15 +34,18 @@ public class SerialService {
     private final StockLedgerService stockLedgerService;
     private final ItemRepository itemRepository;
     private final StockMovementRepository stockMovementRepository;
+    private final GoodsReceivedNoteRepository grnRepository;
 
     public SerialService(ItemSerialRepository itemSerialRepository,
                          StockLedgerService stockLedgerService,
                          ItemRepository itemRepository,
-                         StockMovementRepository stockMovementRepository) {
+                         StockMovementRepository stockMovementRepository,
+                         GoodsReceivedNoteRepository grnRepository) {
         this.itemSerialRepository = itemSerialRepository;
         this.stockLedgerService = stockLedgerService;
         this.itemRepository = itemRepository;
         this.stockMovementRepository = stockMovementRepository;
+        this.grnRepository = grnRepository;
     }
 
     @Transactional(readOnly = true)
@@ -72,18 +81,7 @@ public class SerialService {
                 .orElseThrow(() -> ApiException.notFound("ItemSerial", trimmed));
 
         Item item = itemRepository.findById(unit.getItemId()).orElse(null);
-        List<SerialEventResponse> timeline = stockMovementRepository
-                .findByItemSerialIdOrderByOccurredAtAsc(unit.getId()).stream()
-                .map(m -> new SerialEventResponse(
-                        m.getMovementType().name(),
-                        m.getQuantityDelta(),
-                        m.getUnitCost(),
-                        m.getReferenceType(),
-                        m.getReferenceId(),
-                        m.getReferenceNumber(),
-                        m.getReason(),
-                        m.getOccurredAt()))
-                .toList();
+        List<SerialEventResponse> timeline = buildTimeline(unit);
 
         boolean underWarranty = unit.getWarrantyEndsOn() != null
                 && !unit.getWarrantyEndsOn().isBefore(LocalDate.now());
@@ -94,6 +92,60 @@ public class SerialService {
                 item == null ? null : item.getSku(),
                 underWarranty,
                 timeline);
+    }
+
+    /**
+     * A unit's history lives in two places: its own lifecycle columns (received on a
+     * GRN, sold against a document) and any stock movement that names it directly -
+     * currently only supplier returns, because a SALE movement covers a whole line
+     * and cannot point at one of several units.
+     */
+    private List<SerialEventResponse> buildTimeline(ItemSerial unit) {
+        List<SerialEventResponse> events = new ArrayList<>();
+
+        if (unit.getReceivedAt() != null) {
+            String grnNumber = unit.getGrnId() == null ? null
+                    : grnRepository.findById(unit.getGrnId())
+                            .map(GoodsReceivedNote::getGrnNumber)
+                            .orElse(null);
+            events.add(new SerialEventResponse(
+                    "RECEIVED",
+                    BigDecimal.ONE,
+                    unit.getCostPrice(),
+                    unit.getGrnId() == null ? null : "GRN",
+                    unit.getGrnId(),
+                    grnNumber,
+                    null,
+                    unit.getReceivedAt()));
+        }
+
+        for (StockMovement movement : stockMovementRepository
+                .findByItemSerialIdOrderByOccurredAtAsc(unit.getId())) {
+            events.add(new SerialEventResponse(
+                    movement.getMovementType().name(),
+                    movement.getQuantityDelta(),
+                    movement.getUnitCost(),
+                    movement.getReferenceType(),
+                    movement.getReferenceId(),
+                    movement.getReferenceNumber(),
+                    movement.getReason(),
+                    movement.getOccurredAt()));
+        }
+
+        if (unit.getSoldAt() != null) {
+            events.add(new SerialEventResponse(
+                    "SOLD",
+                    BigDecimal.ONE.negate(),
+                    null,
+                    unit.getSoldDocumentType() == null ? null : unit.getSoldDocumentType().name(),
+                    unit.getSoldDocumentId(),
+                    null,
+                    null,
+                    unit.getSoldAt()));
+        }
+
+        events.sort(Comparator.comparing(SerialEventResponse::occurredAt));
+        return events;
     }
 
     @Transactional

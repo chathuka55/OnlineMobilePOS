@@ -7,5 +7,7 @@ public enum SerialStatus {
     SOLD,
     RETURNED,
     DEFECTIVE,
+    IN_REPAIR,
+    RMA,
     WRITTEN_OFF
 }

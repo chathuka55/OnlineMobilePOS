@@ -12,6 +12,7 @@ import {
   type CustomerType,
   type DamagedItem,
   type Serial,
+  type SerialLifecycle,
   type SerialStatus,
   type Item,
   type ItemRequest,
@@ -368,6 +369,10 @@ export function createPosApiClient(options: PosApiClientOptions = {}) {
     serials: {
       list(params?: { q?: string; itemId?: UUID; status?: SerialStatus; size?: number }) {
         return get<Page<Serial> | Serial[]>('/api/v1/serials', params);
+      },
+      /** Scan an IMEI or serial and get the unit plus its full history. */
+      lookup(code: string) {
+        return get<SerialLifecycle>(`/api/v1/serials/lookup/${encodeURIComponent(code)}`);
       },
     },
 

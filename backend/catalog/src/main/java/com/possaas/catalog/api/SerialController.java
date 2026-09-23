@@ -1,5 +1,6 @@
 package com.possaas.catalog.api;
 
+import com.possaas.catalog.api.dto.CatalogDtos.SerialLifecycleResponse;
 import com.possaas.catalog.api.dto.CatalogDtos.SerialResponse;
 import com.possaas.catalog.domain.SerialStatus;
 import com.possaas.catalog.domain.SoldDocumentType;
@@ -53,6 +54,13 @@ public class SerialController {
     @PreAuthorize("hasAuthority('serial.view')")
     public SerialResponse byNumber(@PathVariable String serialNumber) {
         return serialService.findByNumber(serialNumber);
+    }
+
+    /** Scan whatever is printed on the device - IMEI or serial - and get its whole history. */
+    @GetMapping("/lookup/{code}")
+    @PreAuthorize("hasAuthority('serial.view')")
+    public SerialLifecycleResponse lookup(@PathVariable String code) {
+        return serialService.lifecycle(code);
     }
 
     @PostMapping("/mark-sold")

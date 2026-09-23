@@ -30,6 +30,25 @@ public class ItemSerial extends TenantEntity {
     @Column(name = "serial_number", nullable = false)
     private String serialNumber;
 
+    @Column(name = "imei1", length = 20)
+    private String imei1;
+
+    /** Second IMEI on a dual-SIM handset. */
+    @Column(name = "imei2", length = 20)
+    private String imei2;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "unit_condition", nullable = false)
+    private UnitCondition unitCondition = UnitCondition.NEW;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "grade")
+    private UnitGrade grade;
+
+    /** Percentage 0-100; below 80 is the conventional trade-in markdown trigger. */
+    @Column(name = "battery_health")
+    private Short batteryHealth;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private SerialStatus status = SerialStatus.IN_STOCK;
@@ -82,6 +101,11 @@ public class ItemSerial extends TenantEntity {
         this.soldAt = null;
         this.soldDocumentType = null;
         this.soldDocumentId = null;
+    }
+
+    /** On the bench - not sellable, but still ours and still in stock valuation. */
+    public void markInRepair() {
+        this.status = SerialStatus.IN_REPAIR;
     }
 
     public void markDefective() {

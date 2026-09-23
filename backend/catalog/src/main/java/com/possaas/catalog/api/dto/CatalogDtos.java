@@ -13,8 +13,12 @@ import com.possaas.catalog.domain.Supplier;
 import com.possaas.catalog.domain.SupplierReturn;
 import com.possaas.catalog.domain.SupplierReturnLine;
 import com.possaas.catalog.domain.SupplierReturnStatus;
+import com.possaas.catalog.domain.UnitCondition;
+import com.possaas.catalog.domain.UnitGrade;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -249,6 +253,11 @@ public final class CatalogDtos {
             UUID itemId,
             UUID outletId,
             String serialNumber,
+            String imei1,
+            String imei2,
+            UnitCondition condition,
+            UnitGrade grade,
+            Short batteryHealth,
             SerialStatus status,
             UUID grnId,
             UUID supplierId,
@@ -267,6 +276,11 @@ public final class CatalogDtos {
                     serial.getItemId(),
                     serial.getOutletId(),
                     serial.getSerialNumber(),
+                    serial.getImei1(),
+                    serial.getImei2(),
+                    serial.getUnitCondition(),
+                    serial.getGrade(),
+                    serial.getBatteryHealth(),
                     serial.getStatus(),
                     serial.getGrnId(),
                     serial.getSupplierId(),
@@ -281,7 +295,48 @@ public final class CatalogDtos {
         }
     }
 
+    /** One step in a unit's life, oldest first: received, sold, repaired, returned. */
+    public record SerialEventResponse(
+            String event,
+            BigDecimal quantityDelta,
+            BigDecimal unitCost,
+            String referenceType,
+            UUID referenceId,
+            String referenceNumber,
+            String reason,
+            Instant occurredAt
+    ) {
+    }
+
+    /**
+     * Everything the counter needs after scanning a handset: what it is, what it
+     * cost, whether it is still under warranty, and everywhere it has been.
+     */
+    public record SerialLifecycleResponse(
+            SerialResponse unit,
+            String itemName,
+            String itemSku,
+            boolean underWarranty,
+            List<SerialEventResponse> timeline
+    ) {
+    }
+
     // --- GRN ----------------------------------------------------------------
+
+    /**
+     * One physical unit received. Used instead of a bare serial number when the
+     * shop needs per-unit detail - IMEIs for a handset, or condition/grade for
+     * used and trade-in stock.
+     */
+    public record GrnUnitRequest(
+            @NotBlank @Size(max = 120) String serialNumber,
+            @Size(max = 20) String imei1,
+            @Size(max = 20) String imei2,
+            UnitCondition condition,
+            UnitGrade grade,
+            @Min(0) @Max(100) Short batteryHealth
+    ) {
+    }
 
     public record GrnLineRequest(
             @NotNull UUID itemId,
@@ -289,7 +344,10 @@ public final class CatalogDtos {
             @NotNull @DecimalMin("0") BigDecimal unitCost,
             BigDecimal retailPriceAtReceipt,
             Short warrantyMonths,
-            List<@NotBlank String> serialNumbers
+            /** Simple path: serial numbers only, all units NEW with no IMEI. */
+            List<@NotBlank String> serialNumbers,
+            /** Detailed path: per-unit IMEI/condition. Mutually exclusive with serialNumbers. */
+            List<@Valid GrnUnitRequest> units
     ) {
     }
 

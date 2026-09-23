@@ -3,11 +3,14 @@ package com.possaas.catalog.service;
 import com.possaas.catalog.api.dto.CatalogDtos.GrnCreateRequest;
 import com.possaas.catalog.api.dto.CatalogDtos.GrnLineRequest;
 import com.possaas.catalog.api.dto.CatalogDtos.GrnResponse;
+import com.possaas.catalog.api.dto.CatalogDtos.GrnUnitRequest;
 import com.possaas.catalog.domain.GoodsReceivedNote;
 import com.possaas.catalog.domain.GrnLine;
+import com.possaas.catalog.domain.Imei;
 import com.possaas.catalog.domain.Item;
 import com.possaas.catalog.domain.ItemSerial;
 import com.possaas.catalog.domain.SerialStatus;
+import com.possaas.catalog.domain.UnitCondition;
 import com.possaas.catalog.repository.GoodsReceivedNoteRepository;
 import com.possaas.catalog.repository.GrnLineRepository;
 import com.possaas.catalog.repository.ItemRepository;
@@ -123,13 +126,11 @@ public class GrnService {
             line.setWarrantyMonths(warrantyMonths);
             lines.add(line);
 
-            List<String> serialNumbers = lineRequest.serialNumbers() == null
-                    ? List.of()
-                    : lineRequest.serialNumbers();
+            List<GrnUnitRequest> units = resolveUnits(item, lineRequest);
             if (item.isHasSerialTracking()) {
-                validateSerialCount(item, quantity, serialNumbers);
-                serials.addAll(createSerials(grn, item, outletId, unitCost, warrantyMonths, serialNumbers));
-            } else if (!serialNumbers.isEmpty()) {
+                validateSerialCount(item, quantity, units);
+                serials.addAll(createSerials(grn, item, outletId, unitCost, warrantyMonths, units));
+            } else if (!units.isEmpty()) {
                 throw ApiException.validation("Serial numbers supplied for a non-serialised item")
                         .with("itemId", item.getId());
             }
@@ -169,15 +170,37 @@ public class GrnService {
         return GrnResponse.from(grn, lines, serials);
     }
 
-    private void validateSerialCount(Item item, BigDecimal quantity, List<String> serialNumbers) {
+    /**
+     * Callers may send either a flat list of serial numbers or the richer per-unit
+     * form. Sending both is a mistake worth failing on rather than guessing which wins.
+     */
+    private List<GrnUnitRequest> resolveUnits(Item item, GrnLineRequest lineRequest) {
+        boolean hasUnits = lineRequest.units() != null && !lineRequest.units().isEmpty();
+        boolean hasSerials = lineRequest.serialNumbers() != null && !lineRequest.serialNumbers().isEmpty();
+        if (hasUnits && hasSerials) {
+            throw ApiException.validation("Supply either serialNumbers or units, not both")
+                    .with("itemId", item.getId());
+        }
+        if (hasUnits) {
+            return lineRequest.units();
+        }
+        if (!hasSerials) {
+            return List.of();
+        }
+        return lineRequest.serialNumbers().stream()
+                .map(sn -> new GrnUnitRequest(sn, null, null, null, null, null))
+                .toList();
+    }
+
+    private void validateSerialCount(Item item, BigDecimal quantity, List<GrnUnitRequest> units) {
         try {
             int expected = quantity.stripTrailingZeros().intValueExact();
-            if (serialNumbers.size() != expected) {
+            if (units.size() != expected) {
                 throw ApiException.of(ErrorCode.SERIAL_COUNT_MISMATCH,
                                 "Serial count must equal received quantity for serialised items")
                         .with("itemId", item.getId())
                         .with("quantity", quantity)
-                        .with("serialCount", serialNumbers.size());
+                        .with("serialCount", units.size());
             }
         } catch (ArithmeticException ex) {
             throw ApiException.validation("Serialised items require a whole-number quantity")
@@ -191,13 +214,14 @@ public class GrnService {
                                            UUID outletId,
                                            BigDecimal unitCost,
                                            short warrantyMonths,
-                                           List<String> serialNumbers) {
+                                           List<GrnUnitRequest> units) {
         Set<String> seen = new HashSet<>();
+        Set<String> seenImeis = new HashSet<>();
         List<ItemSerial> created = new ArrayList<>();
         Instant receivedAt = grn.getReceivedAt();
         LocalDate warrantyStart = receivedAt.atZone(ZoneOffset.UTC).toLocalDate();
-        for (String raw : serialNumbers) {
-            String serialNumber = raw.trim();
+        for (GrnUnitRequest unit : units) {
+            String serialNumber = unit.serialNumber().trim();
             if (!seen.add(serialNumber.toLowerCase())) {
                 throw ApiException.of(ErrorCode.SERIAL_ALREADY_EXISTS,
                                 "Duplicate serial in GRN request")
@@ -207,10 +231,18 @@ public class GrnService {
                 throw ApiException.of(ErrorCode.SERIAL_ALREADY_EXISTS, "Serial already exists")
                         .with("serialNumber", serialNumber);
             }
+            String imei1 = requireValidImei(unit.imei1(), serialNumber, seenImeis);
+            String imei2 = requireValidImei(unit.imei2(), serialNumber, seenImeis);
+
             ItemSerial serial = new ItemSerial();
             serial.setItemId(item.getId());
             serial.setOutletId(outletId);
             serial.setSerialNumber(serialNumber);
+            serial.setImei1(imei1);
+            serial.setImei2(imei2);
+            serial.setUnitCondition(unit.condition() == null ? UnitCondition.NEW : unit.condition());
+            serial.setGrade(unit.grade());
+            serial.setBatteryHealth(unit.batteryHealth());
             serial.setStatus(SerialStatus.IN_STOCK);
             serial.setGrnId(grn.getId());
             serial.setSupplierId(grn.getSupplierId());
@@ -223,6 +255,31 @@ public class GrnService {
             created.add(serial);
         }
         return created;
+    }
+
+    /**
+     * A mistyped IMEI produces a unit nobody can ever find by scanning the handset,
+     * so the Luhn check digit is verified at intake rather than at sale time.
+     */
+    private String requireValidImei(String raw, String serialNumber, Set<String> seenInRequest) {
+        String imei = Imei.normalize(raw);
+        if (imei == null) {
+            return null;
+        }
+        if (!Imei.isValid(imei)) {
+            throw ApiException.validation("IMEI is not a valid 15-digit IMEI")
+                    .with("serialNumber", serialNumber)
+                    .with("imei", imei);
+        }
+        if (!seenInRequest.add(imei)) {
+            throw ApiException.of(ErrorCode.SERIAL_ALREADY_EXISTS, "Duplicate IMEI in GRN request")
+                    .with("imei", imei);
+        }
+        if (itemSerialRepository.existsByAnyImei(imei)) {
+            throw ApiException.of(ErrorCode.SERIAL_ALREADY_EXISTS, "IMEI already exists in stock")
+                    .with("imei", imei);
+        }
+        return imei;
     }
 
     private GrnResponse toResponse(GoodsReceivedNote grn, boolean includeSerials) {

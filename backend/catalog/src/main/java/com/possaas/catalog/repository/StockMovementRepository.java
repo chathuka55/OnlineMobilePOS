@@ -8,4 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface StockMovementRepository extends JpaRepository<StockMovement, UUID> {
 
     List<StockMovement> findByItemIdOrderByOccurredAtDesc(UUID itemId);
+
+    List<StockMovement> findByItemSerialIdOrderByOccurredAtAsc(UUID itemSerialId);
 }

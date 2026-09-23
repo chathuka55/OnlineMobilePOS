@@ -336,18 +336,54 @@ export interface Item {
   barcodes: Barcode[];
 }
 
-export type SerialStatus = 'IN_STOCK' | 'RESERVED' | 'SOLD' | 'RETURNED' | 'DEFECTIVE' | 'WRITTEN_OFF';
+export type SerialStatus =
+  | 'IN_STOCK'
+  | 'RESERVED'
+  | 'SOLD'
+  | 'RETURNED'
+  | 'DEFECTIVE'
+  | 'IN_REPAIR'
+  | 'RMA'
+  | 'WRITTEN_OFF';
+
+export type UnitCondition = 'NEW' | 'OPEN_BOX' | 'USED' | 'REFURB';
+
+export type UnitGrade = 'A' | 'B' | 'C' | 'D';
 
 export interface Serial {
   id: UUID;
   itemId: UUID;
   outletId?: UUID | null;
   serialNumber: string;
+  imei1?: string | null;
+  imei2?: string | null;
+  condition: UnitCondition;
+  grade?: UnitGrade | null;
+  batteryHealth?: number | null;
   status: SerialStatus;
   costPrice?: number | string | null;
   warrantyStartsOn?: string | null;
   warrantyEndsOn?: string | null;
   notes?: string | null;
+}
+
+export interface SerialEvent {
+  event: string;
+  quantityDelta: number | string;
+  unitCost?: number | string | null;
+  referenceType?: string | null;
+  referenceId?: UUID | null;
+  referenceNumber?: string | null;
+  reason?: string | null;
+  occurredAt: string;
+}
+
+export interface SerialLifecycle {
+  unit: Serial;
+  itemName?: string | null;
+  itemSku?: string | null;
+  underWarranty: boolean;
+  timeline: SerialEvent[];
 }
 
 export interface DamagedItem {

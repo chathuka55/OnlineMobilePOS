@@ -304,9 +304,18 @@ export default function ReportsPage() {
             </Card>
           ) : (
             <>
-              <div className="grid gap-4 md:grid-cols-4">
+              <div className="grid gap-4 md:grid-cols-5">
                 <Stat label="Gross sales" value={money(vatReport.grossSales)} />
-                <Stat label="Taxable value" value={money(vatReport.taxableValue)} />
+                <Stat
+                  label="Taxable value"
+                  value={money(vatReport.taxableValue)}
+                  hint="supplies VAT was charged on"
+                />
+                <Stat
+                  label="Zero-rated"
+                  value={money(vatReport.zeroRatedValue)}
+                  hint="no VAT charged"
+                />
                 <Stat label="Output VAT" value={money(vatReport.vatOutput)} />
                 <Stat
                   label="Net VAT payable"

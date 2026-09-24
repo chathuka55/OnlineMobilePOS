@@ -436,6 +436,7 @@ export interface VatOutputReport {
   billCount: number;
   grossSales: number | string;
   taxableValue: number | string;
+  zeroRatedValue: number | string;
   vatOutput: number | string;
   refundedGross: number | string;
   refundedVat: number | string;

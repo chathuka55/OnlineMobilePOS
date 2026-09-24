@@ -125,7 +125,10 @@ public final class ReportingDtos {
             String vatTin,
             long billCount,
             BigDecimal grossSales,
+            /** Value of the supplies VAT was charged on. */
             BigDecimal taxableValue,
+            /** Sales carrying no VAT, kept out of the taxable base. */
+            BigDecimal zeroRatedValue,
             BigDecimal vatOutput,
             BigDecimal refundedGross,
             BigDecimal refundedVat,

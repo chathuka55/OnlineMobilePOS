@@ -454,12 +454,24 @@ public class ReportService {
         BigDecimal refundedGross = Money.of((BigDecimal) refunds.get("gross"));
         BigDecimal refundedVat = Money.of((BigDecimal) refunds.get("vat"));
 
+        // Taxable value is the value of the supplies VAT was actually charged on.
+        // Deriving it as gross minus VAT would sweep zero-rated and exempt sales into
+        // it, overstating the taxable base on the return. Anything left over after
+        // taxable value and its VAT is reported separately as zero-rated.
+        BigDecimal taxableValue = Money.ZERO;
+        for (VatRateRow row : byRate) {
+            taxableValue = Money.add(taxableValue, row.taxableValue());
+        }
+        BigDecimal zeroRatedValue = Money.subtract(
+                grossSales, Money.add(taxableValue, vatOutput));
+
         return new VatOutputResponse(
                 rangeFrom, rangeTo, vatRegistered,
                 tenant == null ? null : tenant.getTaxIdentifier(),
                 ((Number) totals.get("bill_count")).longValue(),
                 grossSales,
-                Money.subtract(grossSales, vatOutput),
+                taxableValue,
+                zeroRatedValue,
                 vatOutput,
                 refundedGross,
                 refundedVat,

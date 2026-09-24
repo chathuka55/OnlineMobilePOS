@@ -63,6 +63,8 @@ jobs:
 
       - run: pnpm lint
 
+      - run: pnpm test
+
       - run: pnpm build
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8080

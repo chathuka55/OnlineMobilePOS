@@ -4,6 +4,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
+      "react": ["./node_modules/@types/react"],
+      "react-dom": ["./node_modules/@types/react-dom"],
       "@possaas/ui": ["../../packages/ui/src/index.ts"],
       "@possaas/ui/*": ["../../packages/ui/src/*"],
       "@possaas/api-client": ["../../packages/api-client/src/index.ts"]

@@ -1,20 +1,9 @@
 /**
  * Unit tests for the ESC/POS encoder.
  *
- * These need vitest, which is not installed yet: the machine this was written on
- * had no route to the npm registry, and adding the dependency without being able
- * to update pnpm-lock.yaml would have broken CI's --frozen-lockfile install. To
- * turn them on:
- *
- *   pnpm --filter @possaas/pos-terminal add -D vitest
- *   # add "test": "vitest run" to apps/pos-terminal/package.json
- *   # drop the "exclude" line from apps/pos-terminal/tsconfig.json
- *
- * Every assertion below was run and passed before being committed, against this
- * exact file, using a stand-in for vitest's describe/it/expect. Two deliberate
- * breakages of escpos.ts (truncating the figure instead of the label, and
- * emitting raw code points instead of replacing unprintable ones) were each
- * caught, so these are not assertions that pass no matter what.
+ * Two deliberate breakages of escpos.ts - truncating the figure instead of the
+ * label, and emitting raw code points instead of replacing unprintable ones -
+ * were each caught by these, so they are not assertions that pass regardless.
  */
 import { describe, expect, it } from 'vitest';
 import {

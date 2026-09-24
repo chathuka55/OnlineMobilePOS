@@ -48,9 +48,15 @@ public class KeepAwakeTask {
             .build();
 
     private final URI target;
+    private boolean confirmed;
 
-    public KeepAwakeTask(@Value("${pos.keep-awake.url}") String url) {
+    public KeepAwakeTask(@Value("${pos.keep-awake.url}") String url,
+                         @Value("${pos.keep-awake.interval:PT10M}") String interval) {
         this.target = URI.create(url);
+        // Whether this is running is not otherwise visible: the free tier surfaces
+        // no request logs, so without a line here there is no way to tell an armed
+        // pinger from a silent one.
+        log.info("Keep-awake armed: pinging {} every {}", target, interval);
     }
 
     /**
@@ -68,7 +74,13 @@ public class KeepAwakeTask {
                             .GET()
                             .build(),
                     HttpResponse.BodyHandlers.discarding());
-            if (log.isDebugEnabled()) {
+            if (!confirmed) {
+                // One line the first time a ping actually lands, so the mechanism can
+                // be confirmed working. After that it is routine and stays at debug.
+                confirmed = true;
+                log.info("Keep-awake ping succeeded ({}); the instance will not be "
+                        + "stopped for idleness", response.statusCode());
+            } else if (log.isDebugEnabled()) {
                 log.debug("Keep-awake ping to {} returned {}", target, response.statusCode());
             }
         } catch (InterruptedException ex) {

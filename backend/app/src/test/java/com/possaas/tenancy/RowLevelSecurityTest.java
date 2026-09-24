@@ -66,9 +66,18 @@ class RowLevelSecurityTest extends IntegrationTest {
                 .allSatisfy(outlet -> assertThat(outlet.getTenantId()).isEqualTo(alphaTenantId));
     }
 
+    /**
+     * Deliberately not @Transactional. One transaction means one persistence
+     * context, and the first lookup below would load Beta's outlet into it - so
+     * the second lookup would be answered from Hibernate's first-level cache
+     * without a query, and would pass while proving nothing about RLS. That is
+     * exactly how this test failed when it was first run. Without a surrounding
+     * transaction each repository call gets its own transaction, connection and
+     * persistence context, which is also how the two calls would reach the
+     * database as two separate requests in production.
+     */
     @Test
     @DisplayName("fetching another tenant's row by primary key returns nothing")
-    @Transactional(readOnly = true)
     void directPrimaryKeyLookupAcrossTenantsIsBlocked() {
         // Read Beta's outlet id while scoped to Beta.
         TenantContext.set(TenantContext.Scope.forTenant(

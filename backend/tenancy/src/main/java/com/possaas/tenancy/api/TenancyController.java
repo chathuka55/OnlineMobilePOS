@@ -72,6 +72,9 @@ public class TenancyController {
         if (request.taxIdentifier() != null) {
             tenant.setTaxIdentifier(request.taxIdentifier().trim());
         }
+        if (request.vatRegistered() != null) {
+            tenant.setVatRegistered(request.vatRegistered());
+        }
         if (request.contactPhone() != null) {
             tenant.setContactPhone(request.contactPhone().trim());
         }
@@ -158,6 +161,7 @@ public class TenancyController {
             String businessName,
             String legalName,
             String taxIdentifier,
+            boolean vatRegistered,
             String status,
             String defaultCurrency,
             String timeZone,
@@ -171,6 +175,7 @@ public class TenancyController {
                     tenant.getBusinessName(),
                     tenant.getLegalName(),
                     tenant.getTaxIdentifier(),
+                    tenant.isVatRegistered(),
                     tenant.getStatus().name(),
                     tenant.getDefaultCurrency(),
                     tenant.getTimeZone(),
@@ -183,6 +188,7 @@ public class TenancyController {
             @NotBlank @Size(max = 160) String businessName,
             @Size(max = 160) String legalName,
             @Size(max = 60) String taxIdentifier,
+            Boolean vatRegistered,
             @Size(max = 32) String contactPhone,
             @Size(max = 60) String timeZone,
             @Size(min = 3, max = 3) String defaultCurrency

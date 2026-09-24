@@ -196,6 +196,7 @@ public final class SalesDtos {
             DiscountType discountType,
             BigDecimal discountInput,
             BigDecimal discountAmount,
+            BigDecimal allocatedBillDiscount,
             BigDecimal netAmount,
             BigDecimal taxRatePercent,
             BigDecimal taxAmount,

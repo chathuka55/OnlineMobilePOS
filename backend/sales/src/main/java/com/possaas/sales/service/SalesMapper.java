@@ -128,6 +128,7 @@ final class SalesMapper {
                 line.getDiscountType(),
                 line.getDiscountInput(),
                 line.getDiscountAmount(),
+                line.getAllocatedBillDiscount(),
                 line.getNetAmount(),
                 line.getTaxRatePercent(),
                 line.getTaxAmount(),

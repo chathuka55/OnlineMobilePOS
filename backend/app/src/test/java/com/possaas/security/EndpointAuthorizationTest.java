@@ -43,7 +43,12 @@ class EndpointAuthorizationTest {
             "PlatformPlanController.java",
             "PlatformMetricsController.java",
             // Called by payment gateways, authenticated by signature not by user.
-            "WebhookController.java"
+            "WebhookController.java",
+            // Branding for the sign-in screen, which renders before anyone has a
+            // token. Returns only a name, two colours and a logo, and answers with
+            // the product defaults for an unknown slug so it cannot be used to
+            // discover which shops exist.
+            "PublicBrandingController.java"
     );
 
     /** Handlers that act only on the caller's own account, so a permission would be wrong. */
@@ -65,7 +70,7 @@ class EndpointAuthorizationTest {
                 if (!MAPPING.matcher(lines.get(i)).find()) {
                     continue;
                 }
-                List<String> block = lines.subList(i, Math.min(i + 12, lines.size()));
+                List<String> block = annotationsAndSignature(lines, i);
                 boolean guarded = block.stream().anyMatch(l -> l.contains("@PreAuthorize"));
                 boolean selfService = block.stream()
                         .anyMatch(l -> SELF_SERVICE.stream().anyMatch(l::contains));
@@ -80,6 +85,27 @@ class EndpointAuthorizationTest {
                 .as("these endpoints have no @PreAuthorize; add the permission they need, "
                         + "or exempt the controller here with a reason")
                 .isEmpty();
+    }
+
+    /**
+     * The mapping's own annotations plus its method signature, and nothing after.
+     *
+     * <p>This used to take a fixed twelve-line window, which ran past the end of a
+     * short handler and into the next one - so an unguarded endpoint followed by a
+     * guarded one was reported as guarded. Two endpoints were being missed that
+     * way. Annotations always sit between the mapping and the signature, so the
+     * signature is the correct place to stop.
+     */
+    private static List<String> annotationsAndSignature(List<String> lines, int mappingIndex) {
+        List<String> block = new ArrayList<>();
+        for (int i = mappingIndex; i < lines.size(); i++) {
+            String line = lines.get(i);
+            block.add(line);
+            if (line.contains("public ") || line.contains("private ") || line.contains("protected ")) {
+                break;
+            }
+        }
+        return block;
     }
 
     private static String signature(List<String> block) {

@@ -100,6 +100,7 @@ public class WholesaleInvoiceController {
     }
 
     @GetMapping("/invoices/{id}/payments")
+    @PreAuthorize("hasAuthority('wholesale.view')")
     public List<PaymentResponse> listPayments(@PathVariable UUID id) {
         return invoiceService.listPayments(id);
     }

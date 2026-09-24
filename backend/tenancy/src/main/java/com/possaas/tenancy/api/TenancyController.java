@@ -12,6 +12,7 @@ import com.possaas.tenancy.service.SettingsService;
 import com.possaas.tenancy.service.TenantService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -56,7 +57,11 @@ public class TenancyController {
         this.settingsService = settingsService;
     }
 
+    /** Every signed-in user needs their own workspace's name, currency and VAT
+     * status - the till prints them on receipts - so this is gated on being signed
+     * in rather than on a permission no cashier would hold. */
     @GetMapping("/tenant")
+    @PreAuthorize("isAuthenticated()")
     public TenantResponse currentTenant() {
         return TenantResponse.from(tenantService.currentTenant());
     }
@@ -84,6 +89,20 @@ public class TenancyController {
         if (request.defaultCurrency() != null && !request.defaultCurrency().isBlank()) {
             tenant.setDefaultCurrency(request.defaultCurrency().trim().toUpperCase(java.util.Locale.ROOT));
         }
+        // Branding: a blank value clears the field, which is how a shop goes back
+        // to the product's default theme without needing a separate "reset" call.
+        if (request.brandName() != null) {
+            tenant.setBrandName(blankToNull(request.brandName()));
+        }
+        if (request.brandPrimaryColor() != null) {
+            tenant.setBrandPrimaryColor(normaliseColor(request.brandPrimaryColor()));
+        }
+        if (request.brandAccentColor() != null) {
+            tenant.setBrandAccentColor(normaliseColor(request.brandAccentColor()));
+        }
+        if (request.brandLogoDataUrl() != null) {
+            tenant.setBrandLogoDataUrl(blankToNull(request.brandLogoDataUrl()));
+        }
         return TenantResponse.from(tenantService.save(tenant));
     }
 
@@ -94,6 +113,7 @@ public class TenancyController {
     }
 
     @GetMapping("/outlets/{id}")
+    @PreAuthorize("hasAuthority('settings.view')")
     public OutletResponse getOutlet(@PathVariable UUID id) {
         return OutletResponse.from(tenantService.resolveOutlet(id));
     }
@@ -132,7 +152,9 @@ public class TenancyController {
         return taxRateRepository.findAll();
     }
 
+    /** Dropdown reference data, needed by every role that fills in a form. */
     @GetMapping("/lookups/{type}")
+    @PreAuthorize("isAuthenticated()")
     public List<LookupValue> lookups(@PathVariable LookupValue.LookupType type) {
         return lookupValueRepository
                 .findByLookupTypeAndActiveIsTrueOrderByDisplayOrderAscValueAsc(type);
@@ -157,6 +179,20 @@ public class TenancyController {
         settingsService.putAll(sanitized);
     }
 
+    /** Six-digit hex, the only form the colour columns accept. */
+    private static final String HEX_COLOR = "^#[0-9a-fA-F]{6}$";
+
+    private static String blankToNull(String value) {
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    /** Stored lower case so two spellings of one colour compare equal. */
+    private static String normaliseColor(String value) {
+        String trimmed = blankToNull(value);
+        return trimmed == null ? null : trimmed.toLowerCase(java.util.Locale.ROOT);
+    }
+
     public record TenantResponse(
             UUID id,
             String slug,
@@ -168,7 +204,11 @@ public class TenancyController {
             String defaultCurrency,
             String timeZone,
             String contactEmail,
-            String contactPhone
+            String contactPhone,
+            String brandName,
+            String brandPrimaryColor,
+            String brandAccentColor,
+            String brandLogoDataUrl
     ) {
         static TenantResponse from(Tenant tenant) {
             return new TenantResponse(
@@ -182,7 +222,11 @@ public class TenancyController {
                     tenant.getDefaultCurrency(),
                     tenant.getTimeZone(),
                     tenant.getContactEmail(),
-                    tenant.getContactPhone());
+                    tenant.getContactPhone(),
+                    tenant.getBrandName(),
+                    tenant.getBrandPrimaryColor(),
+                    tenant.getBrandAccentColor(),
+                    tenant.getBrandLogoDataUrl());
         }
     }
 
@@ -193,7 +237,13 @@ public class TenancyController {
             Boolean vatRegistered,
             @Size(max = 32) String contactPhone,
             @Size(max = 60) String timeZone,
-            @Size(min = 3, max = 3) String defaultCurrency
+            @Size(min = 3, max = 3) String defaultCurrency,
+            @Size(max = 60) String brandName,
+            @Pattern(regexp = HEX_COLOR, message = "must be a hex colour like #1d4ed8")
+            String brandPrimaryColor,
+            @Pattern(regexp = HEX_COLOR, message = "must be a hex colour like #1d4ed8")
+            String brandAccentColor,
+            String brandLogoDataUrl
     ) {
     }
 

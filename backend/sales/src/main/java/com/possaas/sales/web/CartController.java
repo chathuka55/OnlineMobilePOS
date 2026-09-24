@@ -39,6 +39,7 @@ public class CartController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('sale.create')")
     public List<CartResponse> listActive() {
         return cartService.listActive();
     }

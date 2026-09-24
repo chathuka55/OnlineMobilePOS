@@ -56,6 +56,7 @@ public class QuotationController {
     }
 
     @GetMapping("/{id}/print")
+    @PreAuthorize("hasAuthority('quotation.view')")
     public QuotationPrintResponse print(@PathVariable UUID id) {
         return quotationService.print(id);
     }

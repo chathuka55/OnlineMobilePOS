@@ -56,6 +56,7 @@ public class SubscriptionController {
     }
 
     @GetMapping("/plans")
+    @PreAuthorize("hasAuthority('settings.view')")
     public List<PlanResponse> plans() {
         return queryService.publicPlans();
     }

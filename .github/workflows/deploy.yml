@@ -1,8 +1,10 @@
 name: Deploy
 
+# This publishes images to GHCR and deploys them over SSH to a self-hosted VPS.
+# The service currently runs on Render and Vercel, which deploy from git on their
+# own, so there is no VPS for this to reach and it failed on every push to main.
+# It stays here for the move to a VPS, but has to be started by hand until then.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       environment:

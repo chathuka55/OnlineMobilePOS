@@ -1,5 +1,10 @@
 name: Backend CI/CD
 
+# Tests only. The API is a Render service connected to this repository, so Render
+# builds and deploys it from git on its own. The deploy job that used to live here
+# installed the Railway CLI and pushed there instead - a provider this project does
+# not use - so it failed with "command not found" on every backend push.
+
 on:
   push:
     branches: [main]
@@ -52,23 +57,3 @@ jobs:
           DB_APP_PASSWORD: test_password
           REDIS_URL: redis://localhost:6379
           JWT_SECRET: test-secret-key-for-ci-only-min-32-chars
-
-  deploy:
-    needs: test
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: 'gradle'
-      - name: Build JAR
-        run: ./gradlew :backend:app:bootJar
-      - name: Deploy to Railway
-        run: |
-          curl -fsSL https://railway.app/install.sh | sh
-          railway up --service api
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

@@ -10,6 +10,8 @@ public enum RepairOrderStatus {
     AWAITING_APPROVAL,
     AWAITING_PARTS,
     IN_PROGRESS,
+    /** Post-repair inspection. A job cannot reach the customer without passing it. */
+    QC,
     COMPLETED,
     DELIVERED,
     CANCELLED,

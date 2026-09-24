@@ -93,6 +93,13 @@ public final class RepairDtos {
     ) {
     }
 
+    /** Customer sign-off on a job that grew past its estimate. */
+    public record ApproveRepairRequest(
+            @NotNull @DecimalMin("0.01") BigDecimal approvedAmount,
+            String note
+    ) {
+    }
+
     public record PaymentRequest(
             @NotNull PaymentMethod method,
             @NotNull @DecimalMin("0.01") BigDecimal amount,
@@ -189,6 +196,9 @@ public final class RepairDtos {
             Instant receivedAt,
             Instant promisedAt,
             Instant completedAt,
+            Instant partsConsumedAt,
+            Instant approvedAt,
+            BigDecimal approvedAmount,
             Instant deliveredAt,
             Instant cancelledAt,
             String cancelReason,

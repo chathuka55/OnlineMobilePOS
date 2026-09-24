@@ -40,6 +40,7 @@ export type RepairStatus =
   | 'AWAITING_APPROVAL'
   | 'AWAITING_PARTS'
   | 'IN_PROGRESS'
+  | 'QC'
   | 'COMPLETED'
   | 'DELIVERED'
   | 'CANCELLED'
@@ -51,7 +52,8 @@ const STATUS_LABELS: Record<RepairStatus, string> = {
   AWAITING_APPROVAL: 'Awaiting Approval',
   AWAITING_PARTS: 'Awaiting Parts',
   IN_PROGRESS: 'In Progress',
-  COMPLETED: 'Completed',
+  QC: 'Quality Check',
+  COMPLETED: 'Ready',
   DELIVERED: 'Delivered',
   CANCELLED: 'Cancelled',
   IRREPARABLE: 'Irreparable',
@@ -65,7 +67,8 @@ const NEXT_STATUS: Partial<Record<RepairStatus, RepairStatus>> = {
   DIAGNOSING: 'IN_PROGRESS',
   AWAITING_APPROVAL: 'IN_PROGRESS',
   AWAITING_PARTS: 'IN_PROGRESS',
-  IN_PROGRESS: 'COMPLETED',
+  IN_PROGRESS: 'QC',
+  QC: 'COMPLETED',
   COMPLETED: 'DELIVERED',
 };
 
@@ -100,6 +103,9 @@ export interface Repair {
   reportedFault?: string;
   diagnosis?: string;
   estimatedCost?: number;
+  approvedAmount?: number;
+  approvedAt?: string;
+  partsConsumedAt?: string;
   grandTotal?: number;
   amountPaid?: number;
   balanceDue?: number;
@@ -151,6 +157,8 @@ export default function RepairsPage() {
   const [form, setForm] = useState<RepairForm>(emptyForm);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(0);
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [approveAmount, setApproveAmount] = useState(0);
   const [lineOpen, setLineOpen] = useState(false);
   const [lineForm, setLineForm] = useState({
     lineType: 'PART' as 'PART' | 'LABOUR' | 'SERVICE',
@@ -229,6 +237,40 @@ export default function RepairsPage() {
       toast({
         title: 'Update failed',
         description: err instanceof ApiError ? err.message : 'Could not update status',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const consumePartsMutation = useMutation({
+    mutationFn: (id: string) => api.post<Repair>(`/api/v1/repairs/${id}/consume-parts`, {}),
+    onSuccess: (updated) => {
+      toast({ title: 'Parts consumed', description: 'Stock deducted.', variant: 'success' });
+      setSelectedRepair(updated);
+      void queryClient.invalidateQueries({ queryKey: ['repairs'] });
+    },
+    onError: (err) => {
+      toast({
+        title: 'Could not consume parts',
+        description: err instanceof ApiError ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: ({ id, amount }: { id: string; amount: number }) =>
+      api.post<Repair>(`/api/v1/repairs/${id}/approve`, { approvedAmount: amount }),
+    onSuccess: (updated) => {
+      toast({ title: 'Approval recorded', variant: 'success' });
+      setSelectedRepair(updated);
+      setApproveOpen(false);
+      void queryClient.invalidateQueries({ queryKey: ['repairs'] });
+    },
+    onError: (err) => {
+      toast({
+        title: 'Could not record approval',
+        description: err instanceof ApiError ? err.message : 'Unknown error',
         variant: 'destructive',
       });
     },
@@ -638,6 +680,56 @@ export default function RepairsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* APPROVAL DIALOG */}
+      <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record Customer Approval</DialogTitle>
+            <DialogDescription>
+              This job has grown past what the customer agreed to. It can&apos;t pass quality
+              check until they approve the new amount.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedRepair && (
+            <div className="space-y-3 py-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Original estimate</span>
+                <span>{money(selectedRepair.estimatedCost ?? 0)}</span>
+              </div>
+              <div className="flex justify-between text-sm font-semibold">
+                <span>Job total now</span>
+                <span>{money(selectedRepair.grandTotal ?? 0)}</span>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="approveAmount">Approved amount</Label>
+                <Input
+                  id="approveAmount"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={approveAmount}
+                  onChange={(e) => setApproveAmount(Number(e.target.value) || 0)}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setApproveOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={approveMutation.isPending || approveAmount <= 0 || !selectedRepair}
+              onClick={() =>
+                selectedRepair &&
+                approveMutation.mutate({ id: selectedRepair.id, amount: approveAmount })
+              }
+            >
+              {approveMutation.isPending ? 'Saving…' : 'Record Approval'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* VIEW DIALOG */}
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
         <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
@@ -816,6 +908,32 @@ export default function RepairsPage() {
                       Collect Payment
                     </Button>
                   )}
+                  {!TERMINAL_STATUSES.includes(selectedRepair.status) &&
+                    !selectedRepair.partsConsumedAt &&
+                    (selectedRepair.lines ?? []).length > 0 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={consumePartsMutation.isPending}
+                        onClick={() => consumePartsMutation.mutate(selectedRepair.id)}
+                      >
+                        {consumePartsMutation.isPending ? 'Consuming…' : 'Consume Parts'}
+                      </Button>
+                    )}
+                  {!TERMINAL_STATUSES.includes(selectedRepair.status) &&
+                    Number(selectedRepair.grandTotal ?? 0) >
+                      Number(selectedRepair.approvedAmount ?? selectedRepair.estimatedCost ?? Infinity) && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setApproveAmount(Number(selectedRepair.grandTotal ?? 0));
+                          setApproveOpen(true);
+                        }}
+                      >
+                        Record Approval
+                      </Button>
+                    )}
                   <Button type="button" variant="outline" onClick={() => setViewOpen(false)}>
                     Close
                   </Button>

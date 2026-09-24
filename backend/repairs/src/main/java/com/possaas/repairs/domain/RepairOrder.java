@@ -135,6 +135,20 @@ public class RepairOrder extends TenantEntity {
     @Column(name = "completed_at")
     private Instant completedAt;
 
+    /** Set when parts left stock. QC is blocked until this is set. */
+    @Column(name = "parts_consumed_at")
+    private Instant partsConsumedAt;
+
+    @Column(name = "approved_at")
+    private Instant approvedAt;
+
+    /** Customer-approved ceiling for a job that grew beyond its estimate. */
+    @Column(name = "approved_amount", precision = 14, scale = 2)
+    private BigDecimal approvedAmount;
+
+    @Column(name = "approved_by")
+    private UUID approvedBy;
+
     @Column(name = "delivered_at")
     private Instant deliveredAt;
 
@@ -189,7 +203,31 @@ public class RepairOrder extends TenantEntity {
     }
 
     public boolean partsWereDeducted() {
-        return completedAt != null
-                && status != RepairOrderStatus.CANCELLED;
+        return partsConsumedAt != null;
+    }
+
+    public boolean hasPartLines() {
+        return lines.stream().anyMatch(RepairLine::isPart);
+    }
+
+    /**
+     * What the customer has agreed to pay: the approved amount once the job has
+     * been re-quoted, otherwise the original estimate. Null means no estimate was
+     * ever given, so there is nothing to exceed.
+     */
+    public BigDecimal approvalCeiling() {
+        return approvedAmount != null ? approvedAmount : estimatedCost;
+    }
+
+    /** True when the job now costs more than the customer has agreed to. */
+    public boolean exceedsApprovedAmount() {
+        BigDecimal ceiling = approvalCeiling();
+        return ceiling != null && grandTotal.compareTo(ceiling) > 0;
+    }
+
+    public void recordApproval(BigDecimal amount, UUID userId) {
+        this.approvedAmount = amount;
+        this.approvedAt = Instant.now();
+        this.approvedBy = userId;
     }
 }

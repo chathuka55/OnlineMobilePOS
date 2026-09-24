@@ -21,6 +21,7 @@ import com.possaas.repairs.domain.RepairLineSerial;
 import com.possaas.repairs.domain.RepairLineType;
 import com.possaas.repairs.domain.RepairOrder;
 import com.possaas.repairs.domain.RepairOrderStatus;
+import com.possaas.repairs.dto.RepairDtos.ApproveRepairRequest;
 import com.possaas.repairs.dto.RepairDtos.CreateRepairRequest;
 import com.possaas.repairs.dto.RepairDtos.PaymentRequest;
 import com.possaas.repairs.dto.RepairDtos.RefundRequest;
@@ -74,9 +75,15 @@ public class RepairService {
                 RepairOrderStatus.CANCELLED, RepairOrderStatus.IRREPARABLE));
         TRANSITIONS.put(RepairOrderStatus.AWAITING_PARTS, EnumSet.of(
                 RepairOrderStatus.IN_PROGRESS, RepairOrderStatus.CANCELLED));
+        // No IN_PROGRESS -> COMPLETED: every job is inspected before handback.
         TRANSITIONS.put(RepairOrderStatus.IN_PROGRESS, EnumSet.of(
-                RepairOrderStatus.COMPLETED, RepairOrderStatus.AWAITING_PARTS,
+                RepairOrderStatus.QC, RepairOrderStatus.AWAITING_PARTS,
                 RepairOrderStatus.CANCELLED, RepairOrderStatus.IRREPARABLE));
+        // A failed inspection goes back to the bench rather than to the customer.
+        TRANSITIONS.put(RepairOrderStatus.QC, EnumSet.of(
+                RepairOrderStatus.COMPLETED, RepairOrderStatus.IN_PROGRESS,
+                RepairOrderStatus.AWAITING_PARTS, RepairOrderStatus.CANCELLED,
+                RepairOrderStatus.IRREPARABLE));
         TRANSITIONS.put(RepairOrderStatus.COMPLETED, EnumSet.of(
                 RepairOrderStatus.DELIVERED, RepairOrderStatus.CANCELLED));
         TRANSITIONS.put(RepairOrderStatus.IRREPARABLE, EnumSet.of(
@@ -292,6 +299,23 @@ public class RepairService {
             }
         }
 
+        if (to == RepairOrderStatus.QC) {
+            // The two things that must be true before anyone inspects the device for
+            // handback: the parts it used have actually left stock, and the customer
+            // has agreed to what the job now costs.
+            if (order.hasPartLines() && !order.partsWereDeducted()) {
+                throw ApiException.of(ErrorCode.INVALID_STATUS_TRANSITION,
+                                "Parts must be consumed before QC")
+                        .with("repairNumber", order.getRepairNumber());
+            }
+            if (order.exceedsApprovedAmount()) {
+                throw ApiException.of(ErrorCode.REPAIR_APPROVAL_REQUIRED,
+                                "Job total exceeds the approved amount; get customer approval first")
+                        .with("grandTotal", order.getGrandTotal())
+                        .with("approvedAmount", order.approvalCeiling());
+            }
+        }
+
         if (to == RepairOrderStatus.CANCELLED) {
             order.setCancelledAt(Instant.now());
             order.setCancelReason(blankToNull(request.cancelReason()));
@@ -301,7 +325,6 @@ public class RepairService {
         }
 
         if (to == RepairOrderStatus.COMPLETED) {
-            deductPartsStock(order);
             order.setCompletedAt(Instant.now());
             if (order.getWarrantyDays() > 0) {
                 order.setWarrantyEndsOn(LocalDate.now().plusDays(order.getWarrantyDays()));
@@ -321,6 +344,68 @@ public class RepairService {
                 to == RepairOrderStatus.CANCELLED ? AuditSeverity.WARN : AuditSeverity.INFO,
                 "Repair " + saved.getRepairNumber() + " moved from " + from + " to " + to,
                 java.util.Map.of("from", from.name(), "to", to.name()), null);
+
+        return RepairMapper.toResponse(saved);
+    }
+
+    /**
+     * Takes the job's parts out of sellable stock. Separate from completing the job
+     * so a half-finished repair can't leave its parts on the shelf, and so QC has
+     * something concrete to gate on.
+     */
+    @Transactional
+    public RepairResponse consumeParts(UUID id) {
+        RepairOrder order = requireWithLines(id);
+        if (order.isTerminal()) {
+            throw ApiException.of(ErrorCode.INVALID_STATUS_TRANSITION,
+                    "Cannot consume parts on a " + order.getStatus() + " repair");
+        }
+        if (order.partsWereDeducted()) {
+            throw ApiException.of(ErrorCode.INVALID_STATUS_TRANSITION,
+                    "Parts have already been consumed for this repair");
+        }
+        if (!order.hasPartLines()) {
+            throw ApiException.validation("This repair has no part lines to consume");
+        }
+
+        deductPartsStock(order);
+        order.setPartsConsumedAt(Instant.now());
+        order.setUpdatedBy(TenantContext.userIdOrNull());
+        RepairOrder saved = repairOrderRepository.save(order);
+
+        auditService.record("REPAIR_ORDER", saved.getId(), saved.getRepairNumber(),
+                "PARTS_CONSUMED", AuditSeverity.INFO,
+                "Parts consumed for repair " + saved.getRepairNumber(),
+                java.util.Map.of("partsCost", saved.getPartsCost()), null);
+
+        return RepairMapper.toResponse(saved);
+    }
+
+    /**
+     * Records that the customer agreed to a new ceiling after the job grew past the
+     * original estimate. Without this, such a job can never pass QC.
+     */
+    @Transactional
+    public RepairResponse approve(UUID id, ApproveRepairRequest request) {
+        RepairOrder order = requireWithLines(id);
+        if (order.isTerminal()) {
+            throw ApiException.of(ErrorCode.INVALID_STATUS_TRANSITION,
+                    "Cannot approve a " + order.getStatus() + " repair");
+        }
+        BigDecimal amount = Money.of(request.approvedAmount());
+        if (!Money.isPositive(amount)) {
+            throw ApiException.validation("Approved amount must be positive");
+        }
+
+        order.recordApproval(amount, TenantContext.userIdOrNull());
+        order.setUpdatedBy(TenantContext.userIdOrNull());
+        RepairOrder saved = repairOrderRepository.save(order);
+
+        auditService.record("REPAIR_ORDER", saved.getId(), saved.getRepairNumber(),
+                "APPROVED", AuditSeverity.INFO,
+                "Customer approved " + amount + " on repair " + saved.getRepairNumber()
+                        + (request.note() != null ? ": " + request.note() : ""),
+                java.util.Map.of("approvedAmount", amount), null);
 
         return RepairMapper.toResponse(saved);
     }
@@ -405,7 +490,7 @@ public class RepairService {
     }
 
     private void deductPartsStock(RepairOrder order) {
-        if (order.getCompletedAt() != null) {
+        if (order.partsWereDeducted()) {
             return;
         }
         for (RepairLine line : order.getLines()) {
@@ -429,6 +514,9 @@ public class RepairService {
     }
 
     private void restorePartsStock(RepairOrder order) {
+        // Parts are back on the shelf, so the job is no longer "consumed" - it must
+        // consume again before it can pass QC a second time.
+        order.setPartsConsumedAt(null);
         for (RepairLine line : order.getLines()) {
             if (!line.isPart() || line.getItemId() == null) {
                 continue;

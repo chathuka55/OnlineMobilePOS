@@ -2,6 +2,7 @@ package com.possaas.repairs.web;
 
 import com.possaas.common.api.PageResponse;
 import com.possaas.repairs.domain.RepairOrderStatus;
+import com.possaas.repairs.dto.RepairDtos.ApproveRepairRequest;
 import com.possaas.repairs.dto.RepairDtos.CreateRepairRequest;
 import com.possaas.repairs.dto.RepairDtos.PaymentRequest;
 import com.possaas.repairs.dto.RepairDtos.RefundRequest;
@@ -74,6 +75,17 @@ public class RepairController {
     public RepairResponse transition(@PathVariable UUID id,
                                      @Valid @RequestBody TransitionRequest request) {
         return repairService.transition(id, request);
+    }
+
+    @PostMapping("/{id}/consume-parts")
+    public RepairResponse consumeParts(@PathVariable UUID id) {
+        return repairService.consumeParts(id);
+    }
+
+    @PostMapping("/{id}/approve")
+    public RepairResponse approve(@PathVariable UUID id,
+                                  @Valid @RequestBody ApproveRepairRequest request) {
+        return repairService.approve(id, request);
     }
 
     @PostMapping("/{id}/payments")

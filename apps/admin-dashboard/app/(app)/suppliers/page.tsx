@@ -2,7 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useMemo, useState } from 'react';
-import { ApiError, type Supplier, type SupplierRequest, type GrnCreateRequest } from '@possaas/api-client';
+import {
+  ApiError,
+  type Supplier,
+  type SupplierRequest,
+  type GrnCreateRequest,
+} from '@possaas/api-client';
 import {
   Badge,
   Button,
@@ -303,7 +308,9 @@ export default function SuppliersPage() {
                       <TableCell className="text-navy font-medium">{g.grnNumber}</TableCell>
                       <TableCell>{new Date(g.receivedAt).toLocaleDateString()}</TableCell>
                       <TableCell>
-                        {g.supplierId ? (suppliersById.get(g.supplierId)?.name ?? g.supplierId) : '—'}
+                        {g.supplierId
+                          ? (suppliersById.get(g.supplierId)?.name ?? g.supplierId)
+                          : '—'}
                       </TableCell>
                       <TableCell className="text-right font-medium">{money(g.total)}</TableCell>
                     </TableRow>
@@ -449,7 +456,13 @@ export default function SuppliersPage() {
                       ...f,
                       lines: [
                         ...f.lines,
-                        { itemId: '', quantity: 1, unitCost: 0, warrantyMonths: 0, serialNumbersText: '' },
+                        {
+                          itemId: '',
+                          quantity: 1,
+                          unitCost: 0,
+                          warrantyMonths: 0,
+                          serialNumbersText: '',
+                        },
                       ],
                     }))
                   }

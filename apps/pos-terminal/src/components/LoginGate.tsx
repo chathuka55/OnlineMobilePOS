@@ -14,7 +14,9 @@ export function LoginGate({ onAuthed }: { onAuthed: (user: User) => void }) {
       const tokens = await api.auth.login({
         emailOrUsername: String(form.get('email') ?? ''),
         password: String(form.get('password') ?? ''),
-        tenantSlug: String(form.get('tenantSlug') ?? '').trim().toLowerCase(),
+        tenantSlug: String(form.get('tenantSlug') ?? '')
+          .trim()
+          .toLowerCase(),
         deviceLabel: 'POS Terminal',
       });
       onAuthed(tokens.user);

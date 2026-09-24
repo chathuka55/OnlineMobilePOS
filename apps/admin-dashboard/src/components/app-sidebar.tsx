@@ -60,7 +60,9 @@ export function AppSidebar() {
     } catch {
       api.tokens.clear();
     }
-    router.replace(user?.tenantSlug ? `/login?shop=${encodeURIComponent(user.tenantSlug)}` : '/login');
+    router.replace(
+      user?.tenantSlug ? `/login?shop=${encodeURIComponent(user.tenantSlug)}` : '/login',
+    );
   }
 
   return (

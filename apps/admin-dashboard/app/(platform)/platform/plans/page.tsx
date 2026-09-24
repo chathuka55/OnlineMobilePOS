@@ -275,8 +275,7 @@ export default function PlatformPlansPage() {
                     .filter((f) => f.enabled !== false)
                     .map((f) => (
                       <Badge key={f.featureCode} variant="info" className="text-[10px]">
-                        {ALL_FEATURES.find((x) => x.code === f.featureCode)?.label ??
-                          f.featureCode}
+                        {ALL_FEATURES.find((x) => x.code === f.featureCode)?.label ?? f.featureCode}
                       </Badge>
                     ))}
                 </div>

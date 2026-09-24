@@ -250,16 +250,14 @@ export function RepairsPanel() {
               >
                 <div className="flex items-center justify-between">
                   <span className="text-navy font-semibold">{r.repairNumber}</span>
-                  <span className="text-xs font-medium uppercase text-muted-foreground">
+                  <span className="text-muted-foreground text-xs font-medium uppercase">
                     {r.status}
                   </span>
                 </div>
                 <div className="text-muted-foreground text-sm">
                   {r.customerName} · {[r.deviceBrand, r.deviceModel].filter(Boolean).join(' ')}
                 </div>
-                <div className="mt-1 text-sm font-semibold">
-                  Balance due: {money(r.balanceDue)}
-                </div>
+                <div className="mt-1 text-sm font-semibold">Balance due: {money(r.balanceDue)}</div>
               </button>
             </li>
           ))}
@@ -370,9 +368,7 @@ export function RepairsPanel() {
             </p>
             <div className="mt-2 flex justify-between text-sm">
               <span>Service + parts</span>
-              <span>
-                {money(Number(selected.serviceCharge) + Number(selected.partsSubtotal))}
-              </span>
+              <span>{money(Number(selected.serviceCharge) + Number(selected.partsSubtotal))}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span>Total</span>
@@ -389,7 +385,7 @@ export function RepairsPanel() {
           </div>
 
           <div className="rounded-xl border bg-white p-4 shadow-sm">
-            <p className="mb-2 text-sm font-semibold text-navy">Add a part</p>
+            <p className="text-navy mb-2 text-sm font-semibold">Add a part</p>
             <Input
               placeholder="Search stock item…"
               value={lineSearch}
@@ -413,7 +409,9 @@ export function RepairsPanel() {
               </ul>
             )}
 
-            <p className="mb-2 mt-4 text-sm font-semibold text-navy">Or add a labour/service charge</p>
+            <p className="text-navy mb-2 mt-4 text-sm font-semibold">
+              Or add a labour/service charge
+            </p>
             <div className="grid grid-cols-3 gap-2">
               <Input
                 className="col-span-2"
@@ -444,7 +442,7 @@ export function RepairsPanel() {
 
           {selected.balanceDue > 0 ? (
             <div className="rounded-xl border bg-white p-4 shadow-sm">
-              <p className="mb-2 text-sm font-semibold text-navy">Collect payment</p>
+              <p className="text-navy mb-2 text-sm font-semibold">Collect payment</p>
               <PaymentCollector
                 balanceDue={selected.balanceDue}
                 submitting={submitting}

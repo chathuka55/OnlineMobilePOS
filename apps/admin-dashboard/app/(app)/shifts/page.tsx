@@ -308,8 +308,8 @@ export default function ShiftsPage() {
           <DialogHeader>
             <DialogTitle>Close Shift (Z-Report)</DialogTitle>
             <DialogDescription>
-              Count the drawer and enter the total. This freezes the shift and records any
-              variance — it can&apos;t be reopened.
+              Count the drawer and enter the total. This freezes the shift and records any variance
+              — it can&apos;t be reopened.
             </DialogDescription>
           </DialogHeader>
           {current && (

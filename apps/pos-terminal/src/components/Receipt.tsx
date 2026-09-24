@@ -27,9 +27,7 @@ export function Receipt({ bill, tenant, outlet, logoLayout = 'SIDE' }: Props) {
       <div className="receipt-business-name">{tenant?.businessName ?? 'Receipt'}</div>
       {outlet?.addressLine1 ? <div className="receipt-line">{outlet.addressLine1}</div> : null}
       {outlet?.city ? <div className="receipt-line">{outlet.city}</div> : null}
-      {outlet?.phonePrimary ? (
-        <div className="receipt-line">Tel: {outlet.phonePrimary}</div>
-      ) : null}
+      {outlet?.phonePrimary ? <div className="receipt-line">Tel: {outlet.phonePrimary}</div> : null}
     </div>
   );
 
@@ -43,9 +41,7 @@ export function Receipt({ bill, tenant, outlet, logoLayout = 'SIDE' }: Props) {
       <div className="receipt-divider" />
       <div className="receipt-line">Bill No: {bill.billNumber}</div>
       <div className="receipt-line">Date: {new Date(bill.billedAt).toLocaleString()}</div>
-      {bill.customerName ? (
-        <div className="receipt-line">Customer: {bill.customerName}</div>
-      ) : null}
+      {bill.customerName ? <div className="receipt-line">Customer: {bill.customerName}</div> : null}
       <div className="receipt-divider" />
 
       <table className="receipt-lines">

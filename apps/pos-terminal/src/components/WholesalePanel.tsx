@@ -72,9 +72,7 @@ export function WholesalePanel() {
     setLines((prev) => {
       const existing = prev.find((l) => l.itemId === item.id);
       if (existing) {
-        return prev.map((l) =>
-          l.itemId === item.id ? { ...l, quantity: l.quantity + 1 } : l,
-        );
+        return prev.map((l) => (l.itemId === item.id ? { ...l, quantity: l.quantity + 1 } : l));
       }
       return [
         ...prev,
@@ -188,7 +186,9 @@ export function WholesalePanel() {
       {customer && !loading && !selected && !creating && (
         <>
           <Button onClick={() => setCreating(true)}>New Wholesale Invoice</Button>
-          <p className="text-sm font-semibold text-navy">{customer.displayName}&apos;s open invoices</p>
+          <p className="text-navy text-sm font-semibold">
+            {customer.displayName}&apos;s open invoices
+          </p>
           {invoices.length === 0 ? (
             <p className="text-muted-foreground text-sm">No outstanding invoices.</p>
           ) : (
@@ -202,7 +202,7 @@ export function WholesalePanel() {
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-navy font-semibold">{inv.invoiceNumber}</span>
-                      <span className="text-xs font-medium uppercase text-muted-foreground">
+                      <span className="text-muted-foreground text-xs font-medium uppercase">
                         {inv.status}
                       </span>
                     </div>
@@ -264,9 +264,7 @@ export function WholesalePanel() {
                       onChange={(e) =>
                         setLines((prev) =>
                           prev.map((x) =>
-                            x.key === l.key
-                              ? { ...x, quantity: Number(e.target.value) || 0 }
-                              : x,
+                            x.key === l.key ? { ...x, quantity: Number(e.target.value) || 0 } : x,
                           ),
                         )
                       }
@@ -280,9 +278,7 @@ export function WholesalePanel() {
                       onChange={(e) =>
                         setLines((prev) =>
                           prev.map((x) =>
-                            x.key === l.key
-                              ? { ...x, unitPrice: Number(e.target.value) || 0 }
-                              : x,
+                            x.key === l.key ? { ...x, unitPrice: Number(e.target.value) || 0 } : x,
                           ),
                         )
                       }

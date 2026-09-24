@@ -337,8 +337,8 @@ export default function BillDetailPage() {
           <DialogHeader>
             <DialogTitle>Collect Payment — {bill.billNumber}</DialogTitle>
             <DialogDescription>
-              Balance due is {money(bill.balanceDue)}. You can collect the full amount or a
-              partial top-up.
+              Balance due is {money(bill.balanceDue)}. You can collect the full amount or a partial
+              top-up.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -391,8 +391,8 @@ export default function BillDetailPage() {
           <DialogHeader>
             <DialogTitle>Void Bill {bill.billNumber}</DialogTitle>
             <DialogDescription>
-              This restores stock and reverses payments/credit applied to this bill. This cannot
-              be undone.
+              This restores stock and reverses payments/credit applied to this bill. This cannot be
+              undone.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-2">
@@ -431,7 +431,10 @@ export default function BillDetailPage() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label>Scope</Label>
-              <Select value={refundScope} onValueChange={(v) => setRefundScope(v as 'FULL' | 'PARTIAL')}>
+              <Select
+                value={refundScope}
+                onValueChange={(v) => setRefundScope(v as 'FULL' | 'PARTIAL')}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -450,7 +453,10 @@ export default function BillDetailPage() {
                     const remaining = Number(line.quantity) - Number(line.quantityReturned || 0);
                     if (remaining <= 0) return null;
                     return (
-                      <div key={line.id} className="flex items-center justify-between gap-2 text-sm">
+                      <div
+                        key={line.id}
+                        className="flex items-center justify-between gap-2 text-sm"
+                      >
                         <span className="flex-1">
                           {line.itemName} (max {remaining})
                         </span>
@@ -476,7 +482,10 @@ export default function BillDetailPage() {
 
             <div className="space-y-2">
               <Label>Settlement Method</Label>
-              <Select value={settlement} onValueChange={(v) => setSettlement(v as RefundSettlement)}>
+              <Select
+                value={settlement}
+                onValueChange={(v) => setSettlement(v as RefundSettlement)}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

@@ -3,12 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  ApiError,
-  type Item,
-  type PaymentMethod,
-  type CheckoutRequest,
-} from '@possaas/api-client';
+import { ApiError, type Item, type PaymentMethod, type CheckoutRequest } from '@possaas/api-client';
 import {
   Badge,
   Button,
@@ -129,10 +124,20 @@ export default function BillsPage() {
         customerPhone: customerPhone || undefined,
         channel: 'RETAIL',
         priceMode: 'RETAIL',
-        lines: lines.map((l) => ({ itemId: l.itemId, quantity: l.quantity, unitPrice: l.unitPrice })),
+        lines: lines.map((l) => ({
+          itemId: l.itemId,
+          quantity: l.quantity,
+          unitPrice: l.unitPrice,
+        })),
         payments:
           amountNow > 0
-            ? [{ method, amount: amountNow, tenderedAmount: method === 'CASH' ? amountNow : undefined }]
+            ? [
+                {
+                  method,
+                  amount: amountNow,
+                  tenderedAmount: method === 'CASH' ? amountNow : undefined,
+                },
+              ]
             : undefined,
       };
       return api.bills.checkout(payload);

@@ -54,7 +54,11 @@ function LoginForm() {
       await api.auth.login({
         emailOrUsername: String(form.get('email') ?? ''),
         password: String(form.get('password') ?? ''),
-        tenantSlug: linkedShop || String(form.get('tenantSlug') ?? '').trim().toLowerCase(),
+        tenantSlug:
+          linkedShop ||
+          String(form.get('tenantSlug') ?? '')
+            .trim()
+            .toLowerCase(),
       });
       toast({ title: 'Welcome back', description: 'Signed in successfully.', variant: 'success' });
       router.replace('/dashboard');

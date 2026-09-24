@@ -109,8 +109,7 @@ export default function ItemsPage() {
   const suppliers = useMemo(() => asList(suppliersQuery.data), [suppliersQuery.data]);
 
   const damageMutation = useMutation({
-    mutationFn: () =>
-      api.items.markDamaged(damageTarget!.id, damageQty, damageReason || undefined),
+    mutationFn: () => api.items.markDamaged(damageTarget!.id, damageQty, damageReason || undefined),
     onSuccess: () => {
       toast({ title: 'Marked as damaged', variant: 'success' });
       setDamageTarget(null);
@@ -529,8 +528,8 @@ export default function ItemsPage() {
           <DialogHeader>
             <DialogTitle>Adjust Stock — {stockTarget?.name}</DialogTitle>
             <DialogDescription>
-              Currently on hand: {Number(stockTarget?.quantityOnHand ?? 0)}. Enter a positive
-              number to add stock, or negative to remove it.
+              Currently on hand: {Number(stockTarget?.quantityOnHand ?? 0)}. Enter a positive number
+              to add stock, or negative to remove it.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">

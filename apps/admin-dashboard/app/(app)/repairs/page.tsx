@@ -686,8 +686,8 @@ export default function RepairsPage() {
           <DialogHeader>
             <DialogTitle>Record Customer Approval</DialogTitle>
             <DialogDescription>
-              This job has grown past what the customer agreed to. It can&apos;t pass quality
-              check until they approve the new amount.
+              This job has grown past what the customer agreed to. It can&apos;t pass quality check
+              until they approve the new amount.
             </DialogDescription>
           </DialogHeader>
           {selectedRepair && (
@@ -816,7 +816,12 @@ export default function RepairsPage() {
                   <div className="mb-3 flex items-center justify-between">
                     <h3 className="font-semibold">Parts / Charges</h3>
                     {!TERMINAL_STATUSES.includes(selectedRepair.status) && (
-                      <Button type="button" variant="outline" size="sm" onClick={() => setLineOpen(true)}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLineOpen(true)}
+                      >
                         <Plus className="h-3 w-3" />
                         Add Line
                       </Button>
@@ -922,7 +927,9 @@ export default function RepairsPage() {
                     )}
                   {!TERMINAL_STATUSES.includes(selectedRepair.status) &&
                     Number(selectedRepair.grandTotal ?? 0) >
-                      Number(selectedRepair.approvedAmount ?? selectedRepair.estimatedCost ?? Infinity) && (
+                      Number(
+                        selectedRepair.approvedAmount ?? selectedRepair.estimatedCost ?? Infinity,
+                      ) && (
                       <Button
                         type="button"
                         variant="outline"
@@ -964,7 +971,9 @@ export default function RepairsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add Part / Charge</DialogTitle>
-            <DialogDescription>Add a part, labour, or service charge to this repair.</DialogDescription>
+            <DialogDescription>
+              Add a part, labour, or service charge to this repair.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">

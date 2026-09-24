@@ -32,8 +32,10 @@ export function PaymentCollector({
   const [chequeNumber, setChequeNumber] = useState('');
   const [chequeDate, setChequeDate] = useState('');
 
-  const valid = amount > 0 && amount <= balanceDue + 0.001
-    && (method !== 'CHEQUE' || (chequeNumber.trim() && chequeDate));
+  const valid =
+    amount > 0 &&
+    amount <= balanceDue + 0.001 &&
+    (method !== 'CHEQUE' || (chequeNumber.trim() && chequeDate));
 
   return (
     <div className="space-y-3">
@@ -46,7 +48,7 @@ export function PaymentCollector({
             className={`rounded-lg border px-2 py-2 text-xs font-semibold transition ${
               method === m
                 ? 'border-primary bg-primary/15 text-navy'
-                : 'border-border bg-white text-muted-foreground hover:bg-slate-50'
+                : 'border-border text-muted-foreground bg-white hover:bg-slate-50'
             }`}
           >
             {m.replace('_', ' ')}

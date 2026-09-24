@@ -4,13 +4,7 @@ export type UUID = string;
 
 export type TenantStatus = 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'SUSPENDED' | 'CANCELLED';
 export type SubscriptionStatus =
-  | 'TRIALING'
-  | 'ACTIVE'
-  | 'PAST_DUE'
-  | 'GRACE'
-  | 'SUSPENDED'
-  | 'CANCELLED'
-  | 'EXPIRED';
+  'TRIALING' | 'ACTIVE' | 'PAST_DUE' | 'GRACE' | 'SUSPENDED' | 'CANCELLED' | 'EXPIRED';
 
 export interface PlatformTenantSummary {
   id: UUID;
@@ -339,14 +333,7 @@ export interface Item {
 }
 
 export type SerialStatus =
-  | 'IN_STOCK'
-  | 'RESERVED'
-  | 'SOLD'
-  | 'RETURNED'
-  | 'DEFECTIVE'
-  | 'IN_REPAIR'
-  | 'RMA'
-  | 'WRITTEN_OFF';
+  'IN_STOCK' | 'RESERVED' | 'SOLD' | 'RETURNED' | 'DEFECTIVE' | 'IN_REPAIR' | 'RMA' | 'WRITTEN_OFF';
 
 export type UnitCondition = 'NEW' | 'OPEN_BOX' | 'USED' | 'REFURB';
 
@@ -574,12 +561,7 @@ export type CartStatus = 'OPEN' | 'HELD' | 'CHECKED_OUT' | 'ABANDONED';
 export type PriceMode = 'RETAIL' | 'WHOLESALE';
 export type DiscountType = 'NONE' | 'PERCENT' | 'AMOUNT';
 export type BillStatus =
-  | 'COMPLETED'
-  | 'PARTIALLY_PAID'
-  | 'UNPAID'
-  | 'VOIDED'
-  | 'REFUNDED'
-  | 'PARTIALLY_REFUNDED';
+  'COMPLETED' | 'PARTIALLY_PAID' | 'UNPAID' | 'VOIDED' | 'REFUNDED' | 'PARTIALLY_REFUNDED';
 export type BillChannel = 'RETAIL' | 'REPAIR' | 'WHOLESALE' | 'ONLINE';
 export type PaymentMethod = 'CASH' | 'CARD' | 'BANK_TRANSFER' | 'CHEQUE' | 'CREDIT' | 'OTHER';
 
@@ -700,7 +682,8 @@ export interface Bill {
 }
 
 export type RefundScope = 'FULL' | 'PARTIAL';
-export type RefundSettlement = 'CASH' | 'CARD_REVERSAL' | 'BANK_TRANSFER' | 'CREDIT_NOTE' | 'CHEQUE';
+export type RefundSettlement =
+  'CASH' | 'CARD_REVERSAL' | 'BANK_TRANSFER' | 'CREDIT_NOTE' | 'CHEQUE';
 
 export interface RefundLineRequest {
   billLineId: UUID;

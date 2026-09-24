@@ -460,8 +460,8 @@ export default function SettingsPage() {
               <CardHeader>
                 <CardTitle>Data Backup</CardTitle>
                 <CardDescription>
-                  Download a full backup of your shop&apos;s data (items, customers, bills,
-                  repairs, wholesale invoices and more) as a JSON file.
+                  Download a full backup of your shop&apos;s data (items, customers, bills, repairs,
+                  wholesale invoices and more) as a JSON file.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -544,8 +544,8 @@ export default function SettingsPage() {
               <CardHeader>
                 <CardTitle>Till Unlock PIN</CardTitle>
                 <CardDescription>
-                  A short PIN cashiers enter to resume a locked POS terminal, instead of the
-                  full password. Leave the PIN field empty to disable it.
+                  A short PIN cashiers enter to resume a locked POS terminal, instead of the full
+                  password. Leave the PIN field empty to disable it.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">

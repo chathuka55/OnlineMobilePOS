@@ -53,8 +53,7 @@ export default function ReportsPage() {
 
   const { data: vatReport, isLoading: loadingVat } = useQuery({
     queryKey: ['reports', 'vat', vatFrom, vatTo],
-    queryFn: () =>
-      api.reports.vatOutput({ from: vatFrom || undefined, to: vatTo || undefined }),
+    queryFn: () => api.reports.vatOutput({ from: vatFrom || undefined, to: vatTo || undefined }),
   });
 
   const { data: profitReport, isLoading: loadingProfit } = useQuery({
@@ -359,9 +358,7 @@ export default function ReportsPage() {
                     </TableBody>
                   </Table>
                   {vatReport.vatTin && (
-                    <p className="text-muted-foreground mt-3 text-xs">
-                      VAT No: {vatReport.vatTin}
-                    </p>
+                    <p className="text-muted-foreground mt-3 text-xs">VAT No: {vatReport.vatTin}</p>
                   )}
                 </CardContent>
               </Card>
@@ -425,9 +422,7 @@ export default function ReportsPage() {
                             </TableCell>
                             <TableCell className="text-right">
                               <Badge
-                                variant={
-                                  Number(l.marginPercent) < 0 ? 'destructive' : 'secondary'
-                                }
+                                variant={Number(l.marginPercent) < 0 ? 'destructive' : 'secondary'}
                               >
                                 {Number(l.marginPercent)}%
                               </Badge>

@@ -2,7 +2,12 @@
 
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ApiError, type Serial, type SerialLifecycle, type SerialStatus } from '@possaas/api-client';
+import {
+  ApiError,
+  type Serial,
+  type SerialLifecycle,
+  type SerialStatus,
+} from '@possaas/api-client';
 import {
   Badge,
   Button,
@@ -102,8 +107,7 @@ export default function SerialsPage() {
     } catch (err) {
       toast({
         title: 'Unit not found',
-        description:
-          err instanceof ApiError ? err.message : `Nothing in stock matches “${code}”`,
+        description: err instanceof ApiError ? err.message : `Nothing in stock matches “${code}”`,
         variant: 'destructive',
       });
     } finally {
@@ -192,8 +196,7 @@ export default function SerialsPage() {
             <TableBody>
               {serials.map((s: Serial) => {
                 const item = itemsById.get(s.itemId);
-                const expired =
-                  s.warrantyEndsOn != null && new Date(s.warrantyEndsOn) < new Date();
+                const expired = s.warrantyEndsOn != null && new Date(s.warrantyEndsOn) < new Date();
                 return (
                   <TableRow key={s.id}>
                     <TableCell className="text-navy font-mono text-xs font-medium">
@@ -221,7 +224,7 @@ export default function SerialsPage() {
                     </TableCell>
                     <TableCell>
                       {s.batteryHealth != null ? (
-                        <span className={s.batteryHealth < 80 ? 'text-red-600 font-medium' : ''}>
+                        <span className={s.batteryHealth < 80 ? 'font-medium text-red-600' : ''}>
                           {s.batteryHealth}%
                         </span>
                       ) : (

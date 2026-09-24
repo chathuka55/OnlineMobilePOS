@@ -60,7 +60,14 @@ export default function PlatformLoginPage() {
           <form className="space-y-4" onSubmit={onSubmit}>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="text" autoComplete="username" required autoFocus />
+              <Input
+                id="email"
+                name="email"
+                type="text"
+                autoComplete="username"
+                required
+                autoFocus
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>

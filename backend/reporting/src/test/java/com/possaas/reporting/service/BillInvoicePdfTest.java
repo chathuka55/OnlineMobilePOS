@@ -44,12 +44,15 @@ class BillInvoicePdfTest {
             report = JasperCompileManager.compileReport(in);
         }
 
-        assertRenders(report, "SIDE", TEST_LOGO, "side layout with logo");
-        assertRenders(report, "CENTERED", TEST_LOGO, "centered layout with logo");
-        assertRenders(report, "SIDE", null, "no logo at all");
+        assertRenders(report, "SIDE", TEST_LOGO, "TAX INVOICE", "side layout with logo");
+        assertRenders(report, "CENTERED", TEST_LOGO, "TAX INVOICE", "centered layout with logo");
+        assertRenders(report, "SIDE", null, "TAX INVOICE", "no logo at all");
+        // A shop that isn't VAT-registered must not issue a document headed "Tax Invoice".
+        assertRenders(report, "SIDE", null, "INVOICE", "unregistered shop");
     }
 
-    private void assertRenders(JasperReport report, String layout, byte[] logo, String label) throws Exception {
+    private void assertRenders(JasperReport report, String layout, byte[] logo,
+                               String documentTitle, String label) throws Exception {
         Map<String, Object> params = new HashMap<>();
         params.put("BILL_NUMBER", "INV-TEST-0001");
         params.put("CUSTOMER_NAME", "Test Customer");
@@ -64,6 +67,8 @@ class BillInvoicePdfTest {
         params.put("OUTLET_CONTACT", "Tel: 0771234567   shop@example.com");
         params.put("LOGO_IMAGE", logo == null ? null : new ByteArrayInputStream(logo));
         params.put("LOGO_LAYOUT", layout);
+        params.put("DOCUMENT_TITLE", documentTitle);
+        params.put("VAT_TIN", "TAX INVOICE".equals(documentTitle) ? "VAT No: 123456789" : "");
 
         var line = new ReportService.BillLineRow();
         line.setLineNumber((short) 1);
@@ -81,5 +86,31 @@ class BillInvoicePdfTest {
         assertTrue(pdf.length > 500, label + ": PDF suspiciously small (" + pdf.length + " bytes)");
         assertTrue(new String(pdf, 0, 5, java.nio.charset.StandardCharsets.US_ASCII).startsWith("%PDF"),
                 label + ": output doesn't look like a PDF");
+
+        // Checked on the rendered page rather than the PDF bytes, which are compressed.
+        List<String> texts = renderedText(print);
+        assertTrue(texts.contains(documentTitle),
+                label + ": expected the document to be headed \"" + documentTitle
+                        + "\" but the rendered text was " + texts);
+        if ("INVOICE".equals(documentTitle)) {
+            assertTrue(texts.stream().noneMatch(t -> t.contains("TAX INVOICE")),
+                    label + ": an unregistered shop must not print \"TAX INVOICE\"");
+        }
+    }
+
+    /** Every piece of text actually laid out on the page. */
+    private static List<String> renderedText(JasperPrint print) {
+        List<String> out = new java.util.ArrayList<>();
+        for (var page : print.getPages()) {
+            for (var element : page.getElements()) {
+                if (element instanceof net.sf.jasperreports.engine.JRPrintText text) {
+                    String value = text.getFullText();
+                    if (value != null && !value.isBlank()) {
+                        out.add(value.trim());
+                    }
+                }
+            }
+        }
+        return out;
     }
 }

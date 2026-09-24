@@ -1,6 +1,7 @@
 package com.possaas.sales.domain;
 
 import com.possaas.common.jpa.TenantOwnedEntity;
+import com.possaas.common.money.Money;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -64,6 +65,10 @@ public class BillLine extends TenantOwnedEntity {
 
     @Column(name = "discount_amount", nullable = false, precision = 14, scale = 2)
     private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    /** This line's share of the bill-level discount. */
+    @Column(name = "allocated_bill_discount", nullable = false, precision = 14, scale = 2)
+    private BigDecimal allocatedBillDiscount = Money.ZERO;
 
     @Column(name = "net_amount", nullable = false, precision = 14, scale = 2)
     private BigDecimal netAmount;

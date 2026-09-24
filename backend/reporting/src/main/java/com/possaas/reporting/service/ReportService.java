@@ -239,8 +239,15 @@ public class ReportService {
         params.put("DISCOUNT_TOTAL", bill.getBillDiscountAmount().add(bill.getLineDiscountTotal()));
         params.put("GRAND_TOTAL", bill.getGrandTotal());
         params.put("BILLED_AT", bill.getBilledAt() == null ? "" : bill.getBilledAt().toString());
-        params.put("BUSINESS_NAME", tenantRepository.findById(TenantContext.requireTenantId())
-                .map(Tenant::getBusinessName).orElse(""));
+        Tenant tenant = tenantRepository.findById(TenantContext.requireTenantId()).orElse(null);
+        params.put("BUSINESS_NAME", tenant == null ? "" : tenant.getBusinessName());
+        // Only a VAT-registered shop may head a document "Tax Invoice"; doing so
+        // otherwise claims a registration the shop does not hold.
+        boolean vatRegistered = tenant != null && tenant.isVatRegistered();
+        params.put("DOCUMENT_TITLE", vatRegistered ? "TAX INVOICE" : "INVOICE");
+        params.put("VAT_TIN", vatRegistered && tenant.getTaxIdentifier() != null
+                ? "VAT No: " + tenant.getTaxIdentifier()
+                : "");
         params.put("OUTLET_ADDRESS", outletAddress(outlet));
         params.put("OUTLET_CONTACT", outletContact(outlet));
         params.put("LOGO_IMAGE", logoStream(outlet));

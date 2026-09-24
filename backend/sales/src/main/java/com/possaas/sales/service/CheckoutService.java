@@ -43,6 +43,7 @@ import com.possaas.sales.repository.PaymentRepository;
 import com.possaas.tenancy.domain.DocumentType;
 import com.possaas.tenancy.domain.TaxRate;
 import com.possaas.tenancy.repository.TaxRateRepository;
+import com.possaas.tenancy.service.TenantService;
 import com.possaas.tenancy.service.DocumentNumberService;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -67,6 +68,7 @@ public class CheckoutService {
     private final ItemSerialRepository itemSerialRepository;
     private final CustomerRepository customerRepository;
     private final TaxRateRepository taxRateRepository;
+    private final TenantService tenantService;
     private final DocumentNumberService documentNumberService;
     private final StockLedgerService stockLedgerService;
 
@@ -79,6 +81,7 @@ public class CheckoutService {
                            ItemSerialRepository itemSerialRepository,
                            CustomerRepository customerRepository,
                            TaxRateRepository taxRateRepository,
+                           TenantService tenantService,
                            DocumentNumberService documentNumberService,
                            StockLedgerService stockLedgerService) {
         this.billRepository = billRepository;
@@ -90,6 +93,7 @@ public class CheckoutService {
         this.itemSerialRepository = itemSerialRepository;
         this.customerRepository = customerRepository;
         this.taxRateRepository = taxRateRepository;
+        this.tenantService = tenantService;
         this.documentNumberService = documentNumberService;
         this.stockLedgerService = stockLedgerService;
     }
@@ -154,6 +158,7 @@ public class CheckoutService {
         BigDecimal costOfGoods = Money.ZERO;
         short lineNo = 1;
         Map<UUID, TaxRate> taxCache = new HashMap<>();
+        boolean vatRegistered = tenantService.currentTenant().isVatRegistered();
 
         for (LineInput input : lineInputs) {
             Item item = itemRepository.findById(input.itemId())
@@ -164,7 +169,10 @@ public class CheckoutService {
             }
 
             TaxRate taxRate = resolveTax(input.taxRateId() != null ? input.taxRateId() : item.getTaxRateId(), taxCache);
-            BigDecimal taxPercent = taxRate != null ? taxRate.getRatePercent() : Money.ZERO;
+            // A shop that isn't VAT-registered may not charge VAT, whatever rate the
+            // item carries - the rate can exist in the catalogue ahead of registration.
+            BigDecimal taxPercent = (taxRate != null && vatRegistered)
+                    ? taxRate.getRatePercent() : Money.ZERO;
             boolean inclusive = taxRate != null && taxRate.isInclusive();
 
             SalesPricing.LineTotals totals = SalesPricing.computeLine(
@@ -248,6 +256,14 @@ public class CheckoutService {
 
         BigDecimal grandTotal = Money.subtract(linesGrand, billDiscountAmount);
 
+        // A bill discount reduces what the customer pays, so it has to reduce the tax
+        // they are charged too. Line tax above was computed before the discount
+        // existed; restate it on each line's share of the discounted total, otherwise
+        // the printed VAT describes an amount nobody paid.
+        if (Money.isPositive(billDiscountAmount)) {
+            taxTotal = applyBillDiscountToLines(bill.getLines(), billDiscountAmount);
+        }
+
         bill.setSubtotal(subtotal);
         bill.setLineDiscountTotal(lineDiscountTotal);
         bill.setBillDiscountType(billDiscountType);
@@ -329,6 +345,68 @@ public class CheckoutService {
             bill.setCustomerName(name != null && !name.isBlank() ? name : "Walk-in Customer");
             bill.setCustomerPhone(phone);
         }
+    }
+
+    /**
+     * Spreads the bill discount over the lines and restates their tax, returning the
+     * reconciled invoice tax. Line amounts are rewritten in place so the stored bill
+     * and its printed copy agree line by line.
+     */
+    private BigDecimal applyBillDiscountToLines(List<BillLine> lines, BigDecimal billDiscount) {
+        List<BillDiscountAllocation.LineInput> inputs = lines.stream()
+                .map(l -> new BillDiscountAllocation.LineInput(
+                        l.getNetAmount(), l.getTaxRatePercent(), l.isTaxInclusive()))
+                .toList();
+
+        List<BillDiscountAllocation.LineResult> allocated =
+                BillDiscountAllocation.allocate(inputs, billDiscount);
+
+        // Tax computed once on the discounted total is the figure the customer can
+        // check against the bill, so the lines are reconciled to it rather than the
+        // other way round.
+        BigDecimal invoiceTax = Money.ZERO;
+        BigDecimal inclusiveTotal = Money.ZERO;
+        BigDecimal inclusiveRate = null;
+        boolean uniformInclusive = true;
+        for (int i = 0; i < lines.size(); i++) {
+            BillLine line = lines.get(i);
+            if (!line.isTaxInclusive()) {
+                uniformInclusive = false;
+                break;
+            }
+            if (inclusiveRate == null) {
+                inclusiveRate = line.getTaxRatePercent();
+            } else if (inclusiveRate.compareTo(line.getTaxRatePercent()) != 0) {
+                uniformInclusive = false;
+                break;
+            }
+            inclusiveTotal = Money.add(inclusiveTotal, allocated.get(i).lineTotal());
+        }
+
+        List<BigDecimal> taxes = allocated.stream()
+                .map(BillDiscountAllocation.LineResult::taxAmount)
+                .toList();
+        if (uniformInclusive && inclusiveRate != null) {
+            invoiceTax = Money.taxFromInclusive(inclusiveTotal, inclusiveRate);
+            taxes = BillDiscountAllocation.reconcileTax(
+                    taxes,
+                    allocated.stream().map(BillDiscountAllocation.LineResult::lineTotal).toList(),
+                    invoiceTax);
+        } else {
+            // Mixed rates or exclusive tax: the sum of the lines is the invoice figure.
+            for (BigDecimal tax : taxes) {
+                invoiceTax = Money.add(invoiceTax, tax);
+            }
+        }
+
+        for (int i = 0; i < lines.size(); i++) {
+            BillLine line = lines.get(i);
+            BillDiscountAllocation.LineResult result = allocated.get(i);
+            line.setAllocatedBillDiscount(result.allocatedDiscount());
+            line.setTaxAmount(taxes.get(i));
+            line.setLineTotal(result.lineTotal());
+        }
+        return invoiceTax;
     }
 
     private TaxRate resolveTax(UUID taxRateId, Map<UUID, TaxRate> cache) {

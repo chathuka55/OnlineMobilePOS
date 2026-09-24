@@ -36,6 +36,10 @@ public class Tenant extends BaseEntity {
     @Column(name = "tax_identifier")
     private String taxIdentifier;
 
+    /** Drives "Tax Invoice" vs "Invoice", and whether VAT may be charged at all. */
+    @Column(name = "vat_registered", nullable = false)
+    private boolean vatRegistered;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private TenantStatus status = TenantStatus.TRIAL;

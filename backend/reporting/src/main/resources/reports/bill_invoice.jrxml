@@ -24,6 +24,8 @@
     <parameter name="OUTLET_ADDRESS" class="java.lang.String"/>
     <parameter name="OUTLET_CONTACT" class="java.lang.String"/>
     <parameter name="LOGO_IMAGE" class="java.io.InputStream"/>
+    <parameter name="DOCUMENT_TITLE" class="java.lang.String"/>
+    <parameter name="VAT_TIN" class="java.lang.String"/>
     <!-- "SIDE" (logo right of business details) or "CENTERED" (logo above, centered). -->
     <parameter name="LOGO_LAYOUT" class="java.lang.String"/>
 
@@ -123,11 +125,11 @@
 
             <!-- Invoice meta: same position regardless of logo layout, pushed down far
                  enough to clear the tallest business-details variant (CENTERED). -->
-            <staticText>
+            <textField>
                 <reportElement x="0" y="124" width="555" height="22"/>
                 <textElement><font size="14" isBold="true"/></textElement>
-                <text><![CDATA[TAX INVOICE]]></text>
-            </staticText>
+                <textFieldExpression><![CDATA[$P{DOCUMENT_TITLE}]]></textFieldExpression>
+            </textField>
             <textField>
                 <reportElement x="0" y="152" width="555" height="16"/>
                 <textFieldExpression><![CDATA["Bill: " + $P{BILL_NUMBER}]]></textFieldExpression>

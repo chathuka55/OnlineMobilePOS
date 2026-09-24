@@ -421,6 +421,74 @@ export interface ShiftReport {
   movements: CashMovement[];
 }
 
+export interface VatRateRow {
+  ratePercent: number | string;
+  taxableValue: number | string;
+  vatAmount: number | string;
+}
+
+/** What a VAT return is filed from. */
+export interface VatOutputReport {
+  from: string;
+  to: string;
+  vatRegistered: boolean;
+  vatTin?: string | null;
+  billCount: number;
+  grossSales: number | string;
+  taxableValue: number | string;
+  vatOutput: number | string;
+  refundedGross: number | string;
+  refundedVat: number | string;
+  netVatPayable: number | string;
+  currency: string;
+  byRate: VatRateRow[];
+}
+
+export interface ProfitLineRow {
+  billId: UUID;
+  billNumber: string;
+  billedAt: string;
+  itemSku: string;
+  itemName: string;
+  serialNumber?: string | null;
+  imei1?: string | null;
+  quantity: number | string;
+  revenue: number | string;
+  cost: number | string;
+  grossProfit: number | string;
+  marginPercent: number | string;
+}
+
+export interface ProfitReport {
+  from: string;
+  to: string;
+  totalRevenue: number | string;
+  totalCost: number | string;
+  totalGrossProfit: number | string;
+  marginPercent: number | string;
+  currency: string;
+  lines: ProfitLineRow[];
+}
+
+export interface StockValuationRow {
+  itemId: UUID;
+  sku: string;
+  itemName: string;
+  quantityOnHand: number | string;
+  unitCost: number | string;
+  value: number | string;
+  serialised: boolean;
+}
+
+export interface StockValuationReport {
+  totalValue: number | string;
+  serialisedValue: number | string;
+  quantityValue: number | string;
+  damagedValue: number | string;
+  currency: string;
+  items: StockValuationRow[];
+}
+
 export interface DamagedItem {
   itemId: UUID;
   sku: string;

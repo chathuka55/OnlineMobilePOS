@@ -2,8 +2,15 @@ package com.possaas.reporting.service;
 
 import com.possaas.common.error.ApiException;
 import com.possaas.common.error.ErrorCode;
+import com.possaas.common.money.Money;
 import com.possaas.common.tenant.TenantContext;
 import com.possaas.reporting.api.dto.ReportingDtos.DailySummaryResponse;
+import com.possaas.reporting.api.dto.ReportingDtos.ProfitLineRow;
+import com.possaas.reporting.api.dto.ReportingDtos.ProfitReportResponse;
+import com.possaas.reporting.api.dto.ReportingDtos.StockValuationResponse;
+import com.possaas.reporting.api.dto.ReportingDtos.StockValuationRow;
+import com.possaas.reporting.api.dto.ReportingDtos.VatOutputResponse;
+import com.possaas.reporting.api.dto.ReportingDtos.VatRateRow;
 import com.possaas.reporting.api.dto.ReportingDtos.MonthlySummaryResponse;
 import com.possaas.reporting.api.dto.ReportingDtos.SalesDayRow;
 import com.possaas.reporting.api.dto.ReportingDtos.SalesRangeResponse;
@@ -20,6 +27,7 @@ import com.possaas.tenancy.service.SettingsService;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.util.Base64;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -382,6 +390,202 @@ public class ReportService {
             converted[i] = args[i] instanceof Instant instant ? java.sql.Timestamp.from(instant) : args[i];
         }
         return converted;
+    }
+
+    /**
+     * VAT charged on sales in a period.
+     *
+     * <p>Every figure is summed from the values stored on the bill lines, never
+     * recomputed from the rate. A report that recalculates can disagree with the
+     * document the customer is holding; one that adds up what was printed cannot.
+     * Voided bills are excluded - they were reversed, so no VAT was charged.
+     */
+    @Transactional(readOnly = true)
+    public VatOutputResponse vatOutput(LocalDate from, LocalDate to) {
+        UUID tenantId = TenantContext.requireTenantId();
+        ZoneId zone = zone();
+        LocalDate rangeTo = to == null ? LocalDate.now(zone) : to;
+        LocalDate rangeFrom = from == null ? rangeTo.withDayOfMonth(1) : from;
+        Instant fromInstant = rangeFrom.atStartOfDay(zone).toInstant();
+        Instant toInstant = rangeTo.plusDays(1).atStartOfDay(zone).toInstant();
+
+        Tenant tenant = tenantRepository.findById(tenantId).orElse(null);
+        boolean vatRegistered = tenant != null && tenant.isVatRegistered();
+
+        List<VatRateRow> byRate = jdbcTemplate.query(
+                "SELECT bl.tax_rate_percent,"
+                        + " COALESCE(SUM(bl.line_total - bl.tax_amount), 0) AS taxable,"
+                        + " COALESCE(SUM(bl.tax_amount), 0) AS vat"
+                        + " FROM bill_lines bl JOIN bills b ON b.id = bl.bill_id"
+                        + " WHERE b.billed_at >= ? AND b.billed_at < ?"
+                        + " AND b.status <> 'VOIDED' AND bl.tax_amount <> 0"
+                        + " GROUP BY bl.tax_rate_percent ORDER BY bl.tax_rate_percent DESC",
+                (rs, rowNum) -> new VatRateRow(
+                        rs.getBigDecimal("tax_rate_percent"),
+                        Money.of(rs.getBigDecimal("taxable")),
+                        Money.of(rs.getBigDecimal("vat"))),
+                Timestamp.from(fromInstant), Timestamp.from(toInstant));
+
+        Map<String, Object> totals = jdbcTemplate.queryForMap(
+                "SELECT COUNT(*) AS bill_count,"
+                        + " COALESCE(SUM(b.grand_total), 0) AS gross,"
+                        + " COALESCE(SUM(b.tax_total), 0) AS vat"
+                        + " FROM bills b WHERE b.billed_at >= ? AND b.billed_at < ?"
+                        + " AND b.status <> 'VOIDED'",
+                Timestamp.from(fromInstant), Timestamp.from(toInstant));
+
+        // Refunds carry no tax column of their own, so the VAT reversed is derived
+        // from the rate on the bill line being returned - the same 18/118 split the
+        // original sale used. Deriving is a compromise: every other figure here is
+        // summed from stored values so it ties to the printed document.
+        Map<String, Object> refunds = jdbcTemplate.queryForMap(
+                "SELECT COALESCE(SUM(rl.line_total), 0) AS gross,"
+                        + " COALESCE(SUM(CASE WHEN bl.tax_inclusive"
+                        + "   THEN rl.line_total * bl.tax_rate_percent / (100 + bl.tax_rate_percent)"
+                        + "   ELSE rl.line_total * bl.tax_rate_percent / 100 END), 0) AS vat"
+                        + " FROM refund_lines rl"
+                        + " JOIN refunds r ON r.id = rl.refund_id"
+                        + " LEFT JOIN bill_lines bl ON bl.id = rl.bill_line_id"
+                        + " WHERE r.refunded_at >= ? AND r.refunded_at < ?",
+                Timestamp.from(fromInstant), Timestamp.from(toInstant));
+
+        BigDecimal grossSales = Money.of((BigDecimal) totals.get("gross"));
+        BigDecimal vatOutput = Money.of((BigDecimal) totals.get("vat"));
+        BigDecimal refundedGross = Money.of((BigDecimal) refunds.get("gross"));
+        BigDecimal refundedVat = Money.of((BigDecimal) refunds.get("vat"));
+
+        return new VatOutputResponse(
+                rangeFrom, rangeTo, vatRegistered,
+                tenant == null ? null : tenant.getTaxIdentifier(),
+                ((Number) totals.get("bill_count")).longValue(),
+                grossSales,
+                Money.subtract(grossSales, vatOutput),
+                vatOutput,
+                refundedGross,
+                refundedVat,
+                Money.subtract(vatOutput, refundedVat),
+                currency(),
+                byRate);
+    }
+
+    /**
+     * Gross profit per sold line, using each serialised unit's own purchase cost
+     * where there is one. Two identical handsets bought at different prices have
+     * different margins, which an item-level average cost would hide.
+     */
+    @Transactional(readOnly = true)
+    public ProfitReportResponse profitByLine(LocalDate from, LocalDate to, int limit) {
+        TenantContext.requireTenantId();
+        ZoneId zone = zone();
+        LocalDate rangeTo = to == null ? LocalDate.now(zone) : to;
+        LocalDate rangeFrom = from == null ? rangeTo.minusDays(29) : from;
+        Instant fromInstant = rangeFrom.atStartOfDay(zone).toInstant();
+        Instant toInstant = rangeTo.plusDays(1).atStartOfDay(zone).toInstant();
+        int capped = Math.max(1, Math.min(limit, 1000));
+
+        List<ProfitLineRow> lines = jdbcTemplate.query(
+                "SELECT b.id AS bill_id, b.bill_number, b.billed_at,"
+                        + " bl.item_sku, bl.item_name, bl.quantity,"
+                        + " (bl.line_total - bl.tax_amount) AS revenue,"
+                        + " s.serial_number, s.imei1,"
+                        + " COALESCE(s.cost_price, bl.unit_cost * bl.quantity) AS cost"
+                        + " FROM bill_lines bl JOIN bills b ON b.id = bl.bill_id"
+                        + " LEFT JOIN bill_line_serials bls ON bls.bill_line_id = bl.id"
+                        + " LEFT JOIN item_serials s ON s.id = bls.item_serial_id"
+                        + " WHERE b.billed_at >= ? AND b.billed_at < ?"
+                        + " AND b.status <> 'VOIDED'"
+                        + " ORDER BY b.billed_at DESC LIMIT ?",
+                (rs, rowNum) -> {
+                    BigDecimal revenue = Money.of(rs.getBigDecimal("revenue"));
+                    BigDecimal cost = Money.of(rs.getBigDecimal("cost"));
+                    BigDecimal profit = Money.subtract(revenue, cost);
+                    return new ProfitLineRow(
+                            rs.getObject("bill_id", UUID.class),
+                            rs.getString("bill_number"),
+                            rs.getTimestamp("billed_at").toInstant(),
+                            rs.getString("item_sku"),
+                            rs.getString("item_name"),
+                            rs.getString("serial_number"),
+                            rs.getString("imei1"),
+                            rs.getBigDecimal("quantity"),
+                            revenue, cost, profit,
+                            marginPercent(profit, revenue));
+                },
+                Timestamp.from(fromInstant), Timestamp.from(toInstant), capped);
+
+        BigDecimal revenue = Money.ZERO;
+        BigDecimal cost = Money.ZERO;
+        for (ProfitLineRow row : lines) {
+            revenue = Money.add(revenue, row.revenue());
+            cost = Money.add(cost, row.cost());
+        }
+        BigDecimal profit = Money.subtract(revenue, cost);
+
+        return new ProfitReportResponse(rangeFrom, rangeTo, revenue, cost, profit,
+                marginPercent(profit, revenue), currency(), lines);
+    }
+
+    /** Stock on hand at cost: serialised units at their own, the rest at average. */
+    @Transactional(readOnly = true)
+    public StockValuationResponse stockValuation() {
+        TenantContext.requireTenantId();
+
+        List<StockValuationRow> rows = jdbcTemplate.query(
+                "SELECT i.id, i.sku, i.name, i.has_serial_tracking,"
+                        + " i.quantity_on_hand, i.cost_price,"
+                        + " COALESCE(su.units, 0) AS serial_units,"
+                        + " COALESCE(su.unit_value, 0) AS serial_value"
+                        + " FROM items i LEFT JOIN ("
+                        + "   SELECT item_id, COUNT(*) AS units,"
+                        + "          SUM(COALESCE(cost_price, 0)) AS unit_value"
+                        + "     FROM item_serials WHERE status = 'IN_STOCK' GROUP BY item_id"
+                        + " ) su ON su.item_id = i.id"
+                        + " WHERE i.deleted_at IS NULL AND i.track_inventory = true"
+                        + " ORDER BY i.name",
+                (rs, rowNum) -> {
+                    boolean serialised = rs.getBoolean("has_serial_tracking");
+                    BigDecimal qty = serialised
+                            ? new BigDecimal(rs.getLong("serial_units"))
+                            : Money.quantity(rs.getBigDecimal("quantity_on_hand"));
+                    BigDecimal unitCost = Money.of(rs.getBigDecimal("cost_price"));
+                    BigDecimal value = serialised
+                            ? Money.of(rs.getBigDecimal("serial_value"))
+                            : Money.of(qty.multiply(unitCost));
+                    return new StockValuationRow(
+                            rs.getObject("id", UUID.class),
+                            rs.getString("sku"),
+                            rs.getString("name"),
+                            qty, unitCost, value, serialised);
+                });
+
+        BigDecimal serialised = Money.ZERO;
+        BigDecimal quantity = Money.ZERO;
+        for (StockValuationRow row : rows) {
+            if (row.serialised()) {
+                serialised = Money.add(serialised, row.value());
+            } else {
+                quantity = Money.add(quantity, row.value());
+            }
+        }
+
+        // Damaged units are held aside from sellable stock but are still an asset
+        // the shop owns, so they are reported separately rather than folded in.
+        BigDecimal damaged = Money.of(jdbcTemplate.queryForObject(
+                "SELECT COALESCE(SUM(quantity_damaged * cost_price), 0) FROM items"
+                        + " WHERE deleted_at IS NULL AND quantity_damaged > 0",
+                BigDecimal.class));
+
+        return new StockValuationResponse(
+                Money.add(serialised, quantity), serialised, quantity, damaged,
+                currency(), rows);
+    }
+
+    private static BigDecimal marginPercent(BigDecimal profit, BigDecimal revenue) {
+        if (revenue == null || revenue.signum() == 0) {
+            return Money.ZERO;
+        }
+        return profit.multiply(Money.HUNDRED)
+                .divide(revenue, 2, java.math.RoundingMode.HALF_UP);
     }
 
     private ZoneId zone() {

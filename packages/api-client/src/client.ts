@@ -16,6 +16,9 @@ import {
   type SerialLifecycle,
   type ShiftReport,
   type ShiftStatus,
+  type ProfitReport,
+  type StockValuationReport,
+  type VatOutputReport,
   type SerialStatus,
   type Item,
   type ItemRequest,
@@ -366,6 +369,18 @@ export function createPosApiClient(options: PosApiClientOptions = {}) {
       },
       damaged(supplierId?: UUID) {
         return get<DamagedItem[]>('/api/v1/items/damaged', supplierId ? { supplierId } : undefined);
+      },
+    },
+
+    reports: {
+      vatOutput(params?: { from?: string; to?: string }) {
+        return get<VatOutputReport>('/api/v1/reports/vat-output', params);
+      },
+      profit(params?: { from?: string; to?: string; limit?: number }) {
+        return get<ProfitReport>('/api/v1/reports/profit', params);
+      },
+      stockValuation() {
+        return get<StockValuationReport>('/api/v1/reports/stock-valuation');
       },
     },
 

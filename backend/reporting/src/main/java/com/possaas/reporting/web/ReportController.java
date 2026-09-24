@@ -1,6 +1,9 @@
 package com.possaas.reporting.web;
 
 import com.possaas.reporting.api.dto.ReportingDtos.DailySummaryResponse;
+import com.possaas.reporting.api.dto.ReportingDtos.ProfitReportResponse;
+import com.possaas.reporting.api.dto.ReportingDtos.StockValuationResponse;
+import com.possaas.reporting.api.dto.ReportingDtos.VatOutputResponse;
 import com.possaas.reporting.api.dto.ReportingDtos.MonthlySummaryResponse;
 import com.possaas.reporting.api.dto.ReportingDtos.SalesRangeResponse;
 import com.possaas.reporting.api.dto.ReportingDtos.TopCustomerRow;
@@ -52,6 +55,28 @@ public class ReportController {
     public List<TopCustomerRow> customers(
             @RequestParam(required = false, defaultValue = "50") int size) {
         return reportService.topCustomers(size);
+    }
+
+    /** VAT charged on sales in a period - what a VAT return is filed from. */
+    @GetMapping("/vat-output")
+    public VatOutputResponse vatOutput(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return reportService.vatOutput(from, to);
+    }
+
+    /** Gross profit per sold line, at each serialised unit's own cost. */
+    @GetMapping("/profit")
+    public ProfitReportResponse profit(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false, defaultValue = "200") int limit) {
+        return reportService.profitByLine(from, to, limit);
+    }
+
+    @GetMapping("/stock-valuation")
+    public StockValuationResponse stockValuation() {
+        return reportService.stockValuation();
     }
 
     @GetMapping("/bills/{billId}/invoice.pdf")

@@ -27,6 +27,8 @@ import { api, asList, money } from '@/lib/api';
 export default function ReportsPage() {
   const [salesFrom, setSalesFrom] = useState('');
   const [salesTo, setSalesTo] = useState('');
+  const [vatFrom, setVatFrom] = useState('');
+  const [vatTo, setVatTo] = useState('');
   const [auditFrom, setAuditFrom] = useState('');
   const [auditTo, setAuditTo] = useState('');
 
@@ -49,6 +51,22 @@ export default function ReportsPage() {
     queryFn: () => api.get<any>('/api/v1/reports/customers', { size: 50 }),
   });
 
+  const { data: vatReport, isLoading: loadingVat } = useQuery({
+    queryKey: ['reports', 'vat', vatFrom, vatTo],
+    queryFn: () =>
+      api.reports.vatOutput({ from: vatFrom || undefined, to: vatTo || undefined }),
+  });
+
+  const { data: profitReport, isLoading: loadingProfit } = useQuery({
+    queryKey: ['reports', 'profit'],
+    queryFn: () => api.reports.profit({ limit: 200 }),
+  });
+
+  const { data: valuation, isLoading: loadingValuation } = useQuery({
+    queryKey: ['reports', 'stock-valuation'],
+    queryFn: () => api.reports.stockValuation(),
+  });
+
   const { data: auditLog, isLoading: loadingAudit } = useQuery({
     queryKey: ['reports', 'audit', auditFrom, auditTo],
     queryFn: () =>
@@ -68,6 +86,9 @@ export default function ReportsPage() {
           <TabsTrigger value="sales">Sales</TabsTrigger>
           <TabsTrigger value="inventory">Inventory</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
+          <TabsTrigger value="vat">VAT</TabsTrigger>
+          <TabsTrigger value="profit">Profit</TabsTrigger>
+          <TabsTrigger value="valuation">Stock Value</TabsTrigger>
           <TabsTrigger value="audit">Audit Log</TabsTrigger>
         </TabsList>
 
@@ -251,6 +272,239 @@ export default function ReportsPage() {
           )}
         </TabsContent>
 
+        <TabsContent value="vat" className="space-y-4">
+          <div className="flex items-center gap-4">
+            <Input
+              type="date"
+              value={vatFrom}
+              onChange={(e) => setVatFrom(e.target.value)}
+              className="w-48"
+            />
+            <span>to</span>
+            <Input
+              type="date"
+              value={vatTo}
+              onChange={(e) => setVatTo(e.target.value)}
+              className="w-48"
+            />
+          </div>
+          {loadingVat ? (
+            <Spinner />
+          ) : !vatReport ? (
+            <p className="text-muted-foreground">No data.</p>
+          ) : !vatReport.vatRegistered ? (
+            <Card>
+              <CardContent className="py-8 text-center">
+                <p className="text-navy font-semibold">This shop is not VAT registered</p>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  No VAT is charged on sales, so there is no output VAT to report. Set VAT
+                  registration in Settings once the shop is registered.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <div className="grid gap-4 md:grid-cols-4">
+                <Stat label="Gross sales" value={money(vatReport.grossSales)} />
+                <Stat label="Taxable value" value={money(vatReport.taxableValue)} />
+                <Stat label="Output VAT" value={money(vatReport.vatOutput)} />
+                <Stat
+                  label="Net VAT payable"
+                  value={money(vatReport.netVatPayable)}
+                  hint={`less ${money(vatReport.refundedVat)} refunded`}
+                />
+              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>By rate</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Rate</TableHead>
+                        <TableHead className="text-right">Taxable value</TableHead>
+                        <TableHead className="text-right">VAT</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {vatReport.byRate.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-muted-foreground">
+                            No taxed sales in this period.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        vatReport.byRate.map((r, i) => (
+                          <TableRow key={i}>
+                            <TableCell>{Number(r.ratePercent)}%</TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {money(r.taxableValue)}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {money(r.vatAmount)}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                  {vatReport.vatTin && (
+                    <p className="text-muted-foreground mt-3 text-xs">
+                      VAT No: {vatReport.vatTin}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="profit" className="space-y-4">
+          {loadingProfit ? (
+            <Spinner />
+          ) : !profitReport ? (
+            <p className="text-muted-foreground">No data.</p>
+          ) : (
+            <>
+              <div className="grid gap-4 md:grid-cols-4">
+                <Stat label="Revenue (ex VAT)" value={money(profitReport.totalRevenue)} />
+                <Stat label="Cost" value={money(profitReport.totalCost)} />
+                <Stat label="Gross profit" value={money(profitReport.totalGrossProfit)} />
+                <Stat label="Margin" value={`${Number(profitReport.marginPercent)}%`} />
+              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Profit per line</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Bill</TableHead>
+                        <TableHead>Item</TableHead>
+                        <TableHead>IMEI / Serial</TableHead>
+                        <TableHead className="text-right">Revenue</TableHead>
+                        <TableHead className="text-right">Cost</TableHead>
+                        <TableHead className="text-right">Profit</TableHead>
+                        <TableHead className="text-right">Margin</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {profitReport.lines.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-muted-foreground">
+                            No sales in this period.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        profitReport.lines.map((l, i) => (
+                          <TableRow key={`${l.billId}-${i}`}>
+                            <TableCell className="text-xs">{l.billNumber}</TableCell>
+                            <TableCell>{l.itemName}</TableCell>
+                            <TableCell className="font-mono text-xs">
+                              {l.imei1 || l.serialNumber || '—'}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {money(l.revenue)}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {money(l.cost)}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {money(l.grossProfit)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Badge
+                                variant={
+                                  Number(l.marginPercent) < 0 ? 'destructive' : 'secondary'
+                                }
+                              >
+                                {Number(l.marginPercent)}%
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="valuation" className="space-y-4">
+          {loadingValuation ? (
+            <Spinner />
+          ) : !valuation ? (
+            <p className="text-muted-foreground">No data.</p>
+          ) : (
+            <>
+              <div className="grid gap-4 md:grid-cols-4">
+                <Stat label="Total stock value" value={money(valuation.totalValue)} />
+                <Stat
+                  label="Serialised units"
+                  value={money(valuation.serialisedValue)}
+                  hint="at each unit's own cost"
+                />
+                <Stat
+                  label="Quantity items"
+                  value={money(valuation.quantityValue)}
+                  hint="at average cost"
+                />
+                <Stat
+                  label="Damaged"
+                  value={money(valuation.damagedValue)}
+                  hint="held aside, not sellable"
+                />
+              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>By item</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>Item</TableHead>
+                        <TableHead className="text-right">On hand</TableHead>
+                        <TableHead className="text-right">Unit cost</TableHead>
+                        <TableHead className="text-right">Value</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {valuation.items.map((r) => (
+                        <TableRow key={r.itemId}>
+                          <TableCell className="font-mono text-xs">{r.sku}</TableCell>
+                          <TableCell>
+                            {r.itemName}
+                            {r.serialised && (
+                              <Badge variant="secondary" className="ml-2 text-[10px]">
+                                serialised
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {Number(r.quantityOnHand)}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {money(r.unitCost)}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {money(r.value)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+
         <TabsContent value="audit" className="space-y-4">
           <div className="flex items-center gap-4">
             <Input
@@ -305,5 +559,19 @@ export default function ReportsPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-muted-foreground text-sm font-medium">{label}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="text-navy text-2xl font-bold tabular-nums">{value}</div>
+        {hint ? <p className="text-muted-foreground mt-1 text-xs">{hint}</p> : null}
+      </CardContent>
+    </Card>
   );
 }

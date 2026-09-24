@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * Translates every exception into the single {@link ApiError} envelope.
@@ -115,8 +116,14 @@ public class GlobalExceptionHandler {
                 Map.of(), List.of(), request);
     }
 
-    @ExceptionHandler(NoHandlerFoundException.class)
-    public ResponseEntity<ApiError> handleNoHandler(NoHandlerFoundException ex,
+    /**
+     * An unknown path. Spring MVC only raises NoHandlerFoundException when
+     * throwExceptionIfNoHandlerFound is on; otherwise the request falls through to the
+     * static resource handler, which raises NoResourceFoundException. Handling only the
+     * first left every typo'd URL answering 500 instead of 404.
+     */
+    @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
+    public ResponseEntity<ApiError> handleNoHandler(Exception ex,
                                                     HttpServletRequest request) {
         return build(ErrorCode.NOT_FOUND, "No such endpoint", Map.of(), List.of(), request);
     }

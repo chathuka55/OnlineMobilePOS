@@ -2,6 +2,7 @@ package com.possaas.reporting.service;
 
 import com.possaas.common.error.ApiException;
 import com.possaas.common.error.ErrorCode;
+import com.possaas.common.jdbc.SqlArgs;
 import com.possaas.common.money.Money;
 import com.possaas.common.tenant.TenantContext;
 import com.possaas.reporting.api.dto.ReportingDtos.DailySummaryResponse;
@@ -379,17 +380,8 @@ public class ReportService {
         return jdbcTemplate.queryForObject(sql, Long.class, jdbcArgs(args));
     }
 
-    /**
-     * pgjdbc can't infer a SQL type for a raw java.time.Instant ("Can't infer the SQL
-     * type to use for an instance of java.time.Instant"), so every Instant arg is
-     * converted to a java.sql.Timestamp, which it handles natively.
-     */
     private static Object[] jdbcArgs(Object... args) {
-        Object[] converted = new Object[args.length];
-        for (int i = 0; i < args.length; i++) {
-            converted[i] = args[i] instanceof Instant instant ? java.sql.Timestamp.from(instant) : args[i];
-        }
-        return converted;
+        return SqlArgs.of(args);
     }
 
     /**

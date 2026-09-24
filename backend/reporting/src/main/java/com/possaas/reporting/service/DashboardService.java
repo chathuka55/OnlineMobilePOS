@@ -1,5 +1,6 @@
 package com.possaas.reporting.service;
 
+import com.possaas.common.jdbc.SqlArgs;
 import com.possaas.common.tenant.TenantContext;
 import com.possaas.reporting.api.dto.ReportingDtos.DashboardResponse;
 import com.possaas.tenancy.domain.Tenant;
@@ -44,7 +45,7 @@ public class DashboardService {
                            AND status <> 'VOIDED'
                         """,
                 BigDecimal.class,
-                tenantId, from, to);
+                SqlArgs.of(tenantId, from, to));
         Long billCount = jdbcTemplate.queryForObject(
                 """
                         SELECT COUNT(*)
@@ -55,7 +56,7 @@ public class DashboardService {
                            AND status <> 'VOIDED'
                         """,
                 Long.class,
-                tenantId, from, to);
+                SqlArgs.of(tenantId, from, to));
         Long lowStock = jdbcTemplate.queryForObject(
                 """
                         SELECT COUNT(*)
@@ -67,7 +68,7 @@ public class DashboardService {
                            AND quantity_on_hand <= reorder_level
                         """,
                 Long.class,
-                tenantId);
+                SqlArgs.of(tenantId));
         Long openRepairs = jdbcTemplate.queryForObject(
                 """
                         SELECT COUNT(*)
@@ -76,7 +77,7 @@ public class DashboardService {
                            AND status NOT IN ('DELIVERED', 'CANCELLED')
                         """,
                 Long.class,
-                tenantId);
+                SqlArgs.of(tenantId));
 
         return new DashboardResponse(
                 businessDate,

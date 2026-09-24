@@ -13,6 +13,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -34,6 +35,7 @@ public class AuditController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('audit.view')")
     public PageResponse<AuditEventResponse> list(
             @RequestParam(required = false) String entityType,
             @RequestParam(required = false) String action,
@@ -47,6 +49,7 @@ public class AuditController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('audit.view')")
     @ResponseStatus(HttpStatus.CREATED)
     public AuditEventResponse record(@RequestBody RecordAuditRequest request) {
         var event = auditService.record(

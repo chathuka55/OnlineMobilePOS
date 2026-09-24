@@ -17,6 +17,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -39,17 +40,20 @@ public class BillController {
     }
 
     @PostMapping("/checkout")
+    @PreAuthorize("hasAuthority('sale.create')")
     @ResponseStatus(HttpStatus.CREATED)
     public BillResponse checkout(@Valid @RequestBody CheckoutRequest request) {
         return checkoutService.checkout(request);
     }
 
     @GetMapping("/{billId}")
+    @PreAuthorize("hasAuthority('sale.view')")
     public BillResponse get(@PathVariable UUID billId) {
         return billService.get(billId);
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('sale.view')")
     public PageResponse<BillSummaryResponse> search(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) BillStatus status,
@@ -61,12 +65,14 @@ public class BillController {
     }
 
     @PostMapping("/{billId}/payments")
+    @PreAuthorize("hasAuthority('payment.record')")
     public BillResponse collectPayment(@PathVariable UUID billId,
                                        @Valid @RequestBody PaymentRequest request) {
         return billService.collectPayment(billId, request);
     }
 
     @PostMapping("/{billId}/void")
+    @PreAuthorize("hasAuthority('sale.void')")
     public BillResponse voidBill(@PathVariable UUID billId,
                                  @RequestBody(required = false) VoidBillRequest request) {
         return billService.voidBill(billId, request == null ? new VoidBillRequest(null) : request);

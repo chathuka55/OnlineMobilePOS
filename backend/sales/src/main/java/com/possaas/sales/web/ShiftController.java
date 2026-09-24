@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,6 +34,7 @@ public class ShiftController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('report.view')")
     public PageResponse<ShiftReport> list(
             @RequestParam(required = false) ShiftStatus status,
             @PageableDefault(size = 50, sort = "openedAt", direction = Sort.Direction.DESC)
@@ -42,16 +44,19 @@ public class ShiftController {
 
     /** The X-report for the till the caller is signed in to. */
     @GetMapping("/current")
+    @PreAuthorize("hasAuthority('sale.create')")
     public ShiftReport current(@RequestParam(required = false) UUID outletId) {
         return shiftService.current(outletId);
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('report.view')")
     public ShiftReport get(@PathVariable UUID id) {
         return shiftService.get(id);
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('sale.create')")
     @ResponseStatus(HttpStatus.CREATED)
     public ShiftReport open(@Valid @RequestBody(required = false) OpenShiftRequest request) {
         return shiftService.open(request == null
@@ -60,6 +65,7 @@ public class ShiftController {
     }
 
     @PostMapping("/{id}/cash-movements")
+    @PreAuthorize("hasAuthority('payment.record')")
     public ShiftReport recordMovement(@PathVariable UUID id,
                                       @Valid @RequestBody CashMovementRequest request) {
         return shiftService.recordMovement(id, request);
@@ -67,6 +73,7 @@ public class ShiftController {
 
     /** The Z-report: count the drawer, post the variance, freeze the shift. */
     @PostMapping("/{id}/close")
+    @PreAuthorize("hasAuthority('report.financial')")
     public ShiftReport close(@PathVariable UUID id,
                              @Valid @RequestBody CloseShiftRequest request) {
         return shiftService.close(id, request);

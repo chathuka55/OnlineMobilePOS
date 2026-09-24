@@ -15,6 +15,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,12 +33,14 @@ public class ReportController {
     }
 
     @GetMapping("/daily-summary")
+    @PreAuthorize("hasAuthority('report.view')")
     public DailySummaryResponse dailySummary(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return reportService.dailySummary(date);
     }
 
     @GetMapping("/monthly-summary")
+    @PreAuthorize("hasAuthority('report.view')")
     public MonthlySummaryResponse monthlySummary(
             @RequestParam(required = false) Integer year,
             @RequestParam(required = false) Integer month) {
@@ -45,6 +48,7 @@ public class ReportController {
     }
 
     @GetMapping("/sales")
+    @PreAuthorize("hasAuthority('report.view')")
     public SalesRangeResponse sales(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
@@ -52,6 +56,7 @@ public class ReportController {
     }
 
     @GetMapping("/customers")
+    @PreAuthorize("hasAuthority('report.view')")
     public List<TopCustomerRow> customers(
             @RequestParam(required = false, defaultValue = "50") int size) {
         return reportService.topCustomers(size);
@@ -59,6 +64,7 @@ public class ReportController {
 
     /** VAT charged on sales in a period - what a VAT return is filed from. */
     @GetMapping("/vat-output")
+    @PreAuthorize("hasAuthority('report.financial')")
     public VatOutputResponse vatOutput(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
@@ -67,6 +73,7 @@ public class ReportController {
 
     /** Gross profit per sold line, at each serialised unit's own cost. */
     @GetMapping("/profit")
+    @PreAuthorize("hasAuthority('report.financial')")
     public ProfitReportResponse profit(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
@@ -75,11 +82,13 @@ public class ReportController {
     }
 
     @GetMapping("/stock-valuation")
+    @PreAuthorize("hasAuthority('report.financial')")
     public StockValuationResponse stockValuation() {
         return reportService.stockValuation();
     }
 
     @GetMapping("/bills/{billId}/invoice.pdf")
+    @PreAuthorize("hasAuthority('sale.reprint')")
     public ResponseEntity<byte[]> billInvoicePdf(
             @PathVariable UUID billId,
             @RequestParam(required = false, defaultValue = "A4") String size) {

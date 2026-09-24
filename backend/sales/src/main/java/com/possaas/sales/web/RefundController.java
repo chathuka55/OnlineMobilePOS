@@ -6,6 +6,7 @@ import com.possaas.sales.service.RefundService;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,12 +26,14 @@ public class RefundController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('sale.refund')")
     @ResponseStatus(HttpStatus.CREATED)
     public RefundResponse create(@Valid @RequestBody CreateRefundRequest request) {
         return refundService.create(request);
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('sale.view')")
     public RefundResponse get(@PathVariable UUID id) {
         return refundService.get(id);
     }

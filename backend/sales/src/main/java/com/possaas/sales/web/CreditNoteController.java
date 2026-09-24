@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -29,17 +30,20 @@ public class CreditNoteController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('credit_note.issue')")
     @ResponseStatus(HttpStatus.CREATED)
     public CreditNoteResponse issue(@Valid @RequestBody IssueCreditNoteRequest request) {
         return creditNoteService.issueFromBill(request);
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('sale.view')")
     public CreditNoteResponse get(@PathVariable UUID id) {
         return creditNoteService.get(id);
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('sale.view')")
     public List<CreditNoteResponse> list(
             @RequestParam(required = false) UUID customerId,
             @RequestParam(defaultValue = "true") boolean openOnly) {
@@ -47,6 +51,7 @@ public class CreditNoteController {
     }
 
     @PostMapping("/{id}/apply")
+    @PreAuthorize("hasAuthority('credit_note.redeem')")
     public BillResponse apply(@PathVariable UUID id,
                               @Valid @RequestBody ApplyCreditNoteRequest request) {
         return creditNoteService.apply(id, request);

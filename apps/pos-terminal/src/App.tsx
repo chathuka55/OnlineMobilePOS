@@ -105,6 +105,8 @@ const PAYMENTS: Array<{ method: PaymentMethod | 'CHEQUE'; label: string; icon: I
 export default function App() {
   const [user, setUser] = useState<User | null>(() => api.auth.getStoredUser());
   const [mode, setMode] = useState<Mode>('RETAIL');
+  const permissions = user?.permissions ?? [];
+  const can = (permission: string) => permissions.includes(permission);
   const [search, setSearch] = useState('');
   const [lines, setLines] = useState<LocalLine[]>([]);
   const [customerName, setCustomerName] = useState('Walk-in Customer');
@@ -555,11 +557,15 @@ export default function App() {
         <div className="flex items-center gap-1 rounded-lg bg-white/10 p-1">
           {(
             [
-              { key: 'RETAIL', label: 'Retail', icon: ShoppingCartIcon },
-              { key: 'REPAIRS', label: 'Repairs', icon: WrenchIcon },
-              { key: 'WHOLESALE', label: 'Wholesale', icon: ShoppingBagIcon },
+              { key: 'RETAIL', label: 'Retail', icon: ShoppingCartIcon, need: 'sale.create' },
+              { key: 'REPAIRS', label: 'Repairs', icon: WrenchIcon, need: 'repair.view' },
+              { key: 'WHOLESALE', label: 'Wholesale', icon: ShoppingBagIcon, need: 'wholesale.view' },
             ] as const
-          ).map(({ key, label, icon: Icon }) => (
+          )
+            // A plain cashier has no wholesale or repair-editing rights, so the
+            // backend would refuse these anyway - don't offer a tab that 403s.
+            .filter(({ need }) => can(need))
+            .map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               type="button"

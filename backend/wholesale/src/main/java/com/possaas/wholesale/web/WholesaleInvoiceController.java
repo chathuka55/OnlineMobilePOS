@@ -19,6 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,6 +42,7 @@ public class WholesaleInvoiceController {
     }
 
     @GetMapping("/invoices")
+    @PreAuthorize("hasAuthority('wholesale.view')")
     public PageResponse<InvoiceResponse> list(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) WholesaleInvoiceStatus status,
@@ -51,23 +53,27 @@ public class WholesaleInvoiceController {
     }
 
     @GetMapping("/invoices/{id}")
+    @PreAuthorize("hasAuthority('wholesale.view')")
     public InvoiceResponse get(@PathVariable UUID id) {
         return invoiceService.get(id);
     }
 
     @PostMapping("/invoices")
+    @PreAuthorize("hasAuthority('wholesale.create')")
     @ResponseStatus(HttpStatus.CREATED)
     public InvoiceResponse create(@Valid @RequestBody CreateInvoiceRequest request) {
         return invoiceService.create(request);
     }
 
     @PutMapping("/invoices/{id}")
+    @PreAuthorize("hasAuthority('wholesale.create')")
     public InvoiceResponse update(@PathVariable UUID id,
                                   @Valid @RequestBody UpdateInvoiceRequest request) {
         return invoiceService.update(id, request);
     }
 
     @PostMapping("/invoices/{id}/lines")
+    @PreAuthorize("hasAuthority('wholesale.create')")
     @ResponseStatus(HttpStatus.CREATED)
     public InvoiceResponse addLine(@PathVariable UUID id,
                                    @Valid @RequestBody InvoiceLineRequest request) {
@@ -75,16 +81,19 @@ public class WholesaleInvoiceController {
     }
 
     @DeleteMapping("/invoices/{id}/lines/{lineId}")
+    @PreAuthorize("hasAuthority('wholesale.create')")
     public InvoiceResponse removeLine(@PathVariable UUID id, @PathVariable UUID lineId) {
         return invoiceService.removeLine(id, lineId);
     }
 
     @PostMapping("/invoices/{id}/post")
+    @PreAuthorize("hasAuthority('wholesale.post')")
     public InvoiceResponse post(@PathVariable UUID id) {
         return invoiceService.post(id);
     }
 
     @PostMapping("/invoices/{id}/void")
+    @PreAuthorize("hasAuthority('wholesale.post')")
     public InvoiceResponse voidInvoice(@PathVariable UUID id,
                                        @RequestBody(required = false) VoidRequest request) {
         return invoiceService.voidInvoice(id, request == null ? new VoidRequest(null) : request);
@@ -96,12 +105,14 @@ public class WholesaleInvoiceController {
     }
 
     @PostMapping("/invoices/{id}/collections")
+    @PreAuthorize("hasAuthority('payment.record')")
     public InvoiceResponse collect(@PathVariable UUID id,
                                    @Valid @RequestBody CollectionRequest request) {
         return invoiceService.collect(id, request);
     }
 
     @PostMapping("/invoices/{invoiceId}/payments/{paymentId}/cheque-status")
+    @PreAuthorize("hasAuthority('cheque.manage')")
     public PaymentResponse clearCheque(@PathVariable UUID invoiceId,
                                        @PathVariable UUID paymentId,
                                        @Valid @RequestBody ClearChequeRequest request) {
@@ -109,6 +120,7 @@ public class WholesaleInvoiceController {
     }
 
     @GetMapping("/collections")
+    @PreAuthorize("hasAuthority('wholesale.view')")
     public PageResponse<InvoiceResponse> collections(
             @RequestParam(required = false) UUID customerId,
             @PageableDefault(size = 50, sort = "dueDate", direction = Sort.Direction.ASC)
@@ -117,6 +129,7 @@ public class WholesaleInvoiceController {
     }
 
     @GetMapping("/customers/{customerId}/credit-ledger")
+    @PreAuthorize("hasAuthority('wholesale.view')")
     public PageResponse<CreditLedgerResponse> creditLedger(
             @PathVariable UUID customerId,
             @PageableDefault(size = 50) Pageable pageable) {

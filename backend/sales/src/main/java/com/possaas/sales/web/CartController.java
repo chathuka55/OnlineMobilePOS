@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,6 +32,7 @@ public class CartController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('sale.create')")
     @ResponseStatus(HttpStatus.CREATED)
     public CartResponse create(@Valid @RequestBody CreateCartRequest request) {
         return cartService.create(request);
@@ -42,17 +44,20 @@ public class CartController {
     }
 
     @GetMapping("/{cartId}")
+    @PreAuthorize("hasAuthority('sale.create')")
     public CartResponse get(@PathVariable UUID cartId) {
         return cartService.get(cartId);
     }
 
     @PutMapping("/{cartId}")
+    @PreAuthorize("hasAuthority('sale.create')")
     public CartResponse update(@PathVariable UUID cartId,
                                @Valid @RequestBody UpdateCartRequest request) {
         return cartService.update(cartId, request);
     }
 
     @PostMapping("/{cartId}/lines")
+    @PreAuthorize("hasAuthority('sale.create')")
     @ResponseStatus(HttpStatus.CREATED)
     public CartResponse addLine(@PathVariable UUID cartId,
                                 @Valid @RequestBody CartLineRequest request) {
@@ -60,6 +65,7 @@ public class CartController {
     }
 
     @PutMapping("/{cartId}/lines/{lineId}")
+    @PreAuthorize("hasAuthority('sale.create')")
     public CartResponse updateLine(@PathVariable UUID cartId,
                                    @PathVariable UUID lineId,
                                    @Valid @RequestBody CartLineRequest request) {
@@ -67,22 +73,26 @@ public class CartController {
     }
 
     @DeleteMapping("/{cartId}/lines/{lineId}")
+    @PreAuthorize("hasAuthority('sale.create')")
     public CartResponse removeLine(@PathVariable UUID cartId, @PathVariable UUID lineId) {
         return cartService.removeLine(cartId, lineId);
     }
 
     @PostMapping("/{cartId}/hold")
+    @PreAuthorize("hasAuthority('sale.hold')")
     public CartResponse hold(@PathVariable UUID cartId,
                              @RequestBody(required = false) HoldCartRequest request) {
         return cartService.hold(cartId, request == null ? new HoldCartRequest(null) : request);
     }
 
     @PostMapping("/{cartId}/resume")
+    @PreAuthorize("hasAuthority('sale.hold')")
     public CartResponse resume(@PathVariable UUID cartId) {
         return cartService.resume(cartId);
     }
 
     @PostMapping("/{cartId}/abandon")
+    @PreAuthorize("hasAuthority('sale.hold')")
     public CartResponse abandon(@PathVariable UUID cartId) {
         return cartService.abandon(cartId);
     }

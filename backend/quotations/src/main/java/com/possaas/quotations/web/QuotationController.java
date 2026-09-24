@@ -16,6 +16,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -38,6 +39,7 @@ public class QuotationController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('quotation.view')")
     public PageResponse<QuotationResponse> list(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) QuotationStatus status,
@@ -48,6 +50,7 @@ public class QuotationController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('quotation.view')")
     public QuotationResponse get(@PathVariable UUID id) {
         return quotationService.get(id);
     }
@@ -58,18 +61,21 @@ public class QuotationController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('quotation.manage')")
     @ResponseStatus(HttpStatus.CREATED)
     public QuotationResponse create(@Valid @RequestBody CreateQuotationRequest request) {
         return quotationService.create(request);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('quotation.manage')")
     public QuotationResponse update(@PathVariable UUID id,
                                     @Valid @RequestBody UpdateQuotationRequest request) {
         return quotationService.update(id, request);
     }
 
     @PostMapping("/{id}/lines")
+    @PreAuthorize("hasAuthority('quotation.manage')")
     @ResponseStatus(HttpStatus.CREATED)
     public QuotationResponse addLine(@PathVariable UUID id,
                                      @Valid @RequestBody QuotationLineRequest request) {
@@ -77,17 +83,20 @@ public class QuotationController {
     }
 
     @DeleteMapping("/{id}/lines/{lineId}")
+    @PreAuthorize("hasAuthority('quotation.manage')")
     public QuotationResponse removeLine(@PathVariable UUID id, @PathVariable UUID lineId) {
         return quotationService.removeLine(id, lineId);
     }
 
     @PostMapping("/{id}/transition")
+    @PreAuthorize("hasAuthority('quotation.convert')")
     public QuotationResponse transition(@PathVariable UUID id,
                                         @Valid @RequestBody TransitionRequest request) {
         return quotationService.transition(id, request);
     }
 
     @PostMapping("/{id}/convert")
+    @PreAuthorize("hasAuthority('quotation.convert')")
     public ConvertResponse convert(@PathVariable UUID id) {
         return quotationService.convertToCart(id);
     }

@@ -19,6 +19,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -49,6 +50,7 @@ public class SubscriptionController {
     }
 
     @GetMapping("/current")
+    @PreAuthorize("hasAuthority('settings.view')")
     public SubscriptionResponse current() {
         return queryService.current();
     }
@@ -59,6 +61,7 @@ public class SubscriptionController {
     }
 
     @PostMapping("/checkout")
+    @PreAuthorize("hasAuthority('billing.manage')")
     @ResponseStatus(HttpStatus.CREATED)
     public CheckoutSessionResponse checkout(@Valid @RequestBody CreateCheckoutRequest request) {
         UUID tenantId = TenantContext.requireTenantId();

@@ -88,6 +88,7 @@ public class TenancyController {
     }
 
     @GetMapping("/outlets")
+    @PreAuthorize("hasAuthority('settings.view')")
     public List<OutletResponse> listOutlets() {
         return outletRepository.findAll().stream().map(OutletResponse::from).toList();
     }
@@ -126,6 +127,7 @@ public class TenancyController {
     }
 
     @GetMapping("/tax-rates")
+    @PreAuthorize("hasAuthority('settings.view')")
     public List<TaxRate> taxRates() {
         return taxRateRepository.findAll();
     }

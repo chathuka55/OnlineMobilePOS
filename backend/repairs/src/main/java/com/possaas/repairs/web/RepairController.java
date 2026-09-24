@@ -17,6 +17,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -38,6 +39,7 @@ public class RepairController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('repair.view')")
     public PageResponse<RepairResponse> list(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) RepairOrderStatus status,
@@ -48,23 +50,27 @@ public class RepairController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('repair.view')")
     public RepairResponse get(@PathVariable UUID id) {
         return repairService.get(id);
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('repair.create')")
     @ResponseStatus(HttpStatus.CREATED)
     public RepairResponse create(@Valid @RequestBody CreateRepairRequest request) {
         return repairService.create(request);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('repair.edit')")
     public RepairResponse update(@PathVariable UUID id,
                                  @Valid @RequestBody UpdateRepairRequest request) {
         return repairService.update(id, request);
     }
 
     @PostMapping("/{id}/lines")
+    @PreAuthorize("hasAuthority('repair.edit')")
     @ResponseStatus(HttpStatus.CREATED)
     public RepairResponse addLine(@PathVariable UUID id,
                                   @Valid @RequestBody RepairLineRequest request) {
@@ -72,29 +78,34 @@ public class RepairController {
     }
 
     @PostMapping("/{id}/transition")
+    @PreAuthorize("hasAuthority('repair.status')")
     public RepairResponse transition(@PathVariable UUID id,
                                      @Valid @RequestBody TransitionRequest request) {
         return repairService.transition(id, request);
     }
 
     @PostMapping("/{id}/consume-parts")
+    @PreAuthorize("hasAuthority('repair.edit')")
     public RepairResponse consumeParts(@PathVariable UUID id) {
         return repairService.consumeParts(id);
     }
 
     @PostMapping("/{id}/approve")
+    @PreAuthorize("hasAuthority('repair.edit')")
     public RepairResponse approve(@PathVariable UUID id,
                                   @Valid @RequestBody ApproveRepairRequest request) {
         return repairService.approve(id, request);
     }
 
     @PostMapping("/{id}/payments")
+    @PreAuthorize("hasAuthority('payment.record')")
     public RepairResponse collectPayment(@PathVariable UUID id,
                                          @Valid @RequestBody PaymentRequest request) {
         return repairService.collectPayment(id, request);
     }
 
     @PostMapping("/{id}/refund")
+    @PreAuthorize("hasAuthority('repair.refund')")
     public RepairResponse refund(@PathVariable UUID id,
                                  @Valid @RequestBody RefundRequest request) {
         return repairService.refund(id, request);

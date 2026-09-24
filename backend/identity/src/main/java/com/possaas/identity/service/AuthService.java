@@ -291,7 +291,8 @@ public class AuthService {
             User user = requireUser(token.getUserId());
             assertNotDisabled(user);
             user.activateWithPassword(passwordEncoder.encode(request.newPassword()));
-            userRepository.save(user);
+            // Flushed inside the tenant scope for the same reason as accept-invite.
+            userRepository.saveAndFlush(user);
             userRef.set(user);
         });
 
@@ -317,7 +318,11 @@ public class AuthService {
                 user.setFullName(request.fullName().trim());
             }
             user.activateWithPassword(passwordEncoder.encode(request.password()));
-            userRepository.save(user);
+            // Flush inside the tenant scope. Hibernate would otherwise defer this
+            // UPDATE to commit, which happens after runWithTokenTenant has exited -
+            // the statement would then run with no app.tenant_id, RLS would match no
+            // rows, and Hibernate reports that as an optimistic-lock failure.
+            userRepository.saveAndFlush(user);
             userRef.set(user);
 
             if (token.getTenantId() != null) {

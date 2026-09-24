@@ -15,7 +15,8 @@ public enum DocumentType {
     WHOLESALE_INVOICE("WS", ResetPeriod.YEARLY),
     SUPPLIER_RETURN("SR", ResetPeriod.YEARLY),
     PAYMENT_RECEIPT("RCT", ResetPeriod.YEARLY),
-    STOCK_ADJUSTMENT("ADJ", ResetPeriod.YEARLY);
+    STOCK_ADJUSTMENT("ADJ", ResetPeriod.YEARLY),
+    SHIFT("SH", ResetPeriod.YEARLY);
 
     private final String defaultPrefix;
     private final ResetPeriod defaultResetPeriod;

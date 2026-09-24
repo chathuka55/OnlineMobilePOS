@@ -386,6 +386,41 @@ export interface SerialLifecycle {
   timeline: SerialEvent[];
 }
 
+export type ShiftStatus = 'OPEN' | 'CLOSED';
+
+export type CashMovementType = 'PAY_IN' | 'PAYOUT' | 'DROP';
+
+export interface CashMovement {
+  id: UUID;
+  movementType: CashMovementType;
+  amount: number | string;
+  reason?: string | null;
+  reference?: string | null;
+  occurredAt: string;
+}
+
+/** Drawer reconciliation for one shift - the X and Z report payload. */
+export interface ShiftReport {
+  shiftId: UUID;
+  shiftNumber: string;
+  status: ShiftStatus;
+  outletId: UUID;
+  openedAt: string;
+  closedAt?: string | null;
+  openingFloat: number | string;
+  cashSales: number | string;
+  cashRepairs: number | string;
+  cashWholesale: number | string;
+  cashRefunds: number | string;
+  payIns: number | string;
+  payouts: number | string;
+  drops: number | string;
+  expectedCash: number | string;
+  countedCash?: number | string | null;
+  variance?: number | string | null;
+  movements: CashMovement[];
+}
+
 export interface DamagedItem {
   itemId: UUID;
   sku: string;

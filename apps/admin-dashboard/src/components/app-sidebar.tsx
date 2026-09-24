@@ -28,6 +28,7 @@ import {
   UserCog,
   Truck,
   AlertTriangle,
+  Banknote,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 
@@ -35,6 +36,7 @@ const nav = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/customers', label: 'Customers', icon: Users },
   { href: '/bills', label: 'Billing / Bills', icon: Receipt },
+  { href: '/shifts', label: 'Shifts & Drawer', icon: Banknote },
   { href: '/items', label: 'Items', icon: Package },
   { href: '/suppliers', label: 'Suppliers', icon: Truck },
   { href: '/damaged', label: 'Damaged Stock', icon: AlertTriangle },

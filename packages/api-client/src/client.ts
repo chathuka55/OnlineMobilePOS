@@ -11,8 +11,11 @@ import {
   type CustomerRequest,
   type CustomerType,
   type DamagedItem,
+  type CashMovementType,
   type Serial,
   type SerialLifecycle,
+  type ShiftReport,
+  type ShiftStatus,
   type SerialStatus,
   type Item,
   type ItemRequest,
@@ -363,6 +366,42 @@ export function createPosApiClient(options: PosApiClientOptions = {}) {
       },
       damaged(supplierId?: UUID) {
         return get<DamagedItem[]>('/api/v1/items/damaged', supplierId ? { supplierId } : undefined);
+      },
+    },
+
+    shifts: {
+      list(params?: { status?: ShiftStatus; size?: number }) {
+        return get<Page<ShiftReport> | ShiftReport[]>('/api/v1/shifts', params);
+      },
+      current(outletId?: UUID) {
+        return get<ShiftReport>('/api/v1/shifts/current', outletId ? { outletId } : undefined);
+      },
+      get(id: UUID) {
+        return get<ShiftReport>(`/api/v1/shifts/${id}`);
+      },
+      open(payload?: { outletId?: UUID; openingFloat?: number | string; note?: string }) {
+        return post<ShiftReport>('/api/v1/shifts', payload ?? {});
+      },
+      recordMovement(
+        id: UUID,
+        payload: {
+          movementType: CashMovementType;
+          amount: number | string;
+          reason?: string;
+          reference?: string;
+        },
+      ) {
+        return post<ShiftReport>(`/api/v1/shifts/${id}/cash-movements`, payload);
+      },
+      close(
+        id: UUID,
+        payload: {
+          countedCash: number | string;
+          denominations?: Record<string, number>;
+          note?: string;
+        },
+      ) {
+        return post<ShiftReport>(`/api/v1/shifts/${id}/close`, payload);
       },
     },
 

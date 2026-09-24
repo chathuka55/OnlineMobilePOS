@@ -156,7 +156,14 @@ class RowLevelSecurityTest extends IntegrationTest {
                    AND NOT c.relrowsecurity
                    AND c.relname NOT IN (
                        'subscriptions', 'subscription_invoices', 'usage_counters',
-                       'gateway_events', 'outbox_messages', 'refresh_tokens'
+                       'gateway_events', 'outbox_messages',
+                       -- Both token tables are read before any tenant is known: the
+                       -- token row is what says which tenant the caller belongs to,
+                       -- so a policy keyed on current_tenant_id() would make sign-in
+                       -- and invite acceptance impossible. V15 disables RLS on them
+                       -- deliberately; see its header. one_time_tokens was missing
+                       -- here, which failed this test against the real schema.
+                       'refresh_tokens', 'one_time_tokens'
                    )
                  ORDER BY c.relname
                 """, String.class);

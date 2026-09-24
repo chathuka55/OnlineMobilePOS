@@ -136,6 +136,13 @@ springdoc:
     tags-sorter: alpha
 
 pos:
+  # Set only where the instance is stopped for idleness (the free hosting tier).
+  # Must be the service's own public URL: a loopback ping never reaches the
+  # platform router and so does not reset the idle timer. See KeepAwakeTask.
+  keep-awake:
+    url: ${KEEP_AWAKE_URL:}
+    interval: ${KEEP_AWAKE_INTERVAL:PT10M}
+
   security:
     jwt:
       # Base64-encoded HMAC-SHA256 key. MUST be overridden outside dev.

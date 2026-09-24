@@ -32,6 +32,34 @@ jobs:
       - name: Test
         run: ./gradlew test
 
+      # Gradle prints failures to the job log, which only repository admins can
+      # download. Re-emitting them as workflow error commands turns each one into
+      # a check annotation, visible on the commit and readable through the API, so
+      # a red build can be diagnosed without admin rights.
+      - name: Annotate test failures
+        if: failure()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import glob, xml.etree.ElementTree as ET
+          found = False
+          for path in glob.glob('**/build/test-results/test/*.xml', recursive=True):
+              try:
+                  root = ET.parse(path).getroot()
+              except ET.ParseError:
+                  continue
+              for case in root.iter('testcase'):
+                  for bad in list(case.findall('failure')) + list(case.findall('error')):
+                      found = True
+                      where = f"{case.get('classname')}.{case.get('name')}"
+                      detail = ((bad.get('message') or bad.get('type') or '')
+                                + ' | ' + (bad.text or '').strip().split(chr(10))[0])
+                      detail = detail.replace(chr(10), ' ').replace(chr(13), ' ')[:600]
+                      print(f"::error title={where}::{detail}")
+          if not found:
+              print("::error title=No test XML::the build failed before any test ran")
+          PY
+
       - name: Build boot jar
         run: ./gradlew :backend:app:bootJar -x test
 

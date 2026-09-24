@@ -1,5 +1,11 @@
 name: Frontend CI/CD
 
+# Checks only. Both front ends are connected to this repository in Vercel with
+# main as their production branch, so Vercel builds and deploys every push by
+# itself. The deploy job that used to live here shelled out to the Vercel CLI as
+# well, needed four secrets to do it, and failed on every run - it was doing a
+# second time, badly, what Vercel was already doing.
+
 on:
   push:
     branches: [main]
@@ -28,26 +34,3 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm build
-
-  deploy:
-    needs: build
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
-      - name: Deploy Admin Dashboard to Vercel
-        run: pnpm dlx vercel --prod --token=${{ secrets.VERCEL_TOKEN }} --cwd apps/admin-dashboard
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_ADMIN_PROJECT_ID }}
-      - name: Deploy POS Terminal to Vercel
-        run: pnpm dlx vercel --prod --token=${{ secrets.VERCEL_TOKEN }} --cwd apps/pos-terminal
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_POS_PROJECT_ID }}

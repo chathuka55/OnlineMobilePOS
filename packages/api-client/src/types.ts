@@ -139,6 +139,8 @@ export interface Tenant {
   businessName: string;
   legalName?: string | null;
   taxIdentifier?: string | null;
+  /** Drives whether VAT is charged at checkout and whether the TIN is printed. */
+  vatRegistered: boolean;
   status: string;
   defaultCurrency: string;
   timeZone: string;

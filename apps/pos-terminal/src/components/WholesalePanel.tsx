@@ -188,7 +188,7 @@ export function WholesalePanel() {
       {customer && !loading && !selected && !creating && (
         <>
           <Button onClick={() => setCreating(true)}>New Wholesale Invoice</Button>
-          <p className="text-sm font-semibold text-navy">{customer.displayName}'s open invoices</p>
+          <p className="text-sm font-semibold text-navy">{customer.displayName}&apos;s open invoices</p>
           {invoices.length === 0 ? (
             <p className="text-muted-foreground text-sm">No outstanding invoices.</p>
           ) : (

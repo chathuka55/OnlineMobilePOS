@@ -10,5 +10,9 @@
     "noEmit": true,
     "types": ["vite/client"]
   },
-  "include": ["src"]
+  "include": ["src"],
+  // The unit tests import vitest, which is not a dependency yet (see the note in
+  // src/lib/escpos.test.ts). Type checking the app must not depend on it, so the
+  // tests are excluded here; drop this line once vitest is installed.
+  "exclude": ["src/**/*.test.ts"]
 }

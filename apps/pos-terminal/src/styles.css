@@ -30,6 +30,13 @@ body,
     font-size: 11px;
   }
 
+  /* A 58mm roll has a 48mm printable area, and the smaller type is what keeps
+     the amount column from wrapping onto its own line. */
+  body[data-print-format='thermal58'] #receipt-print {
+    width: 48mm;
+    font-size: 9px;
+  }
+
   body[data-print-format='half-a4'] #receipt-print,
   body[data-print-format='a4'] #receipt-print {
     width: 100%;
@@ -89,6 +96,11 @@ body,
 
   body[data-print-format='thermal80'] .receipt-logo {
     max-height: 36px;
+    max-width: 40%;
+  }
+
+  body[data-print-format='thermal58'] .receipt-logo {
+    max-height: 28px;
     max-width: 40%;
   }
 

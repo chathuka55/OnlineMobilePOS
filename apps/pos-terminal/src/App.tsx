@@ -2,7 +2,6 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 're
 import {
   ApiError,
   type Cart,
-  type Customer,
   type Item,
   type PaymentMethod,
   type Serial,
@@ -56,11 +55,13 @@ const ShoppingCartIcon = ShoppingCart as IconComponent;
 import type { Outlet, Tenant } from '@possaas/api-client';
 import { api, money } from './lib/api';
 import {
-  printReceipt,
+  printBestEffort,
   getStoredReceiptFormat,
   setStoredReceiptFormat,
+  canPrintRaw,
   type ReceiptFormat,
 } from './lib/print';
+import { toReceiptModel } from './lib/receiptModel';
 import { Keypad } from './components/Keypad';
 import { LoginGate } from './components/LoginGate';
 import { Receipt, type LogoLayout } from './components/Receipt';
@@ -516,17 +517,27 @@ export default function App() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="thermal58">58mm Thermal Receipt</SelectItem>
                 <SelectItem value="thermal80">80mm Thermal Receipt</SelectItem>
                 <SelectItem value="half-a4">Half A4</SelectItem>
                 <SelectItem value="a4">Full A4</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-muted-foreground mt-2 text-xs">
+              {receiptFormat.startsWith('thermal') && canPrintRaw()
+                ? 'Prints straight to the thermal printer, no dialog.'
+                : 'Opens the printer dialog.'}
+            </p>
           </div>
           <div className="flex flex-col gap-3">
             <Button
               size="lg"
               onClick={() => {
-                printReceipt(lastBill.billNumber, receiptFormat);
+                void printBestEffort(
+                  lastBill.billNumber,
+                  toReceiptModel(lastBill, shopTenant, shopOutlet, user?.fullName),
+                  receiptFormat,
+                );
               }}
             >
               Print Receipt
